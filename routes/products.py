@@ -48,6 +48,18 @@ def get_products(
     return query.all()
 
 
+@router.get("/low-stock", response_model=list[ProductResponse])
+def get_low_stock_products(
+    threshold: int = 5,
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(Product)
+        .filter(Product.stock <= threshold)
+        .all()
+    )
+
+
 @router.get("/{product_id}", response_model=ProductResponse)
 def get_product(product_id: int, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.id == product_id).first()
