@@ -1,10 +1,17 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ProductCreate(BaseModel):
-    name: str
-    price: float
-    stock: int = 0
+    name: str = Field(
+        min_length=1,
+        max_length=100
+    )
+    price: float = Field(
+        ge=0
+    )
+    stock: int = Field(
+        ge=0
+    )
 
 
 class ProductResponse(BaseModel):
