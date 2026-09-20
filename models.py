@@ -1,7 +1,8 @@
-from sqlalchemy import String
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
+from datetime import datetime
 
 
 class Product(Base):
@@ -20,3 +21,51 @@ class Customer(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(150), nullable=False, unique=True)
     phone: Mapped[str] = mapped_column(String(20), nullable=False)
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    customer_id: Mapped[int] = mapped_column(
+        ForeignKey("customers.id"),
+        nullable=False,
+    )
+
+    total_price: Mapped[float] = mapped_column(
+        default=0,
+        nullable=False,
+    )
+
+    status: Mapped[str] = mapped_column(default="pending", nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    order_id: Mapped[int] = mapped_column(
+        ForeignKey("orders.id"),
+        nullable=False,
+    )
+
+    product_id: Mapped[int] = mapped_column(
+        ForeignKey("products.id"),
+        nullable=False,
+    )
+
+    quantity: Mapped[int] = mapped_column(
+        nullable=False,
+    )
+
+    unit_price: Mapped[float] = mapped_column(
+        nullable=False,
+    )

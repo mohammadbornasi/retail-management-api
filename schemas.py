@@ -1,4 +1,6 @@
 from pydantic import BaseModel, Field
+from datetime import datetime
+from enum import Enum
 
 
 class ProductCreate(BaseModel):
@@ -47,3 +49,44 @@ class CustomerResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class OrderItemCreate(BaseModel):
+    product_id: int
+    quantity: int = Field(gt=0)
+    
+
+class OrderItemUpdate(BaseModel):
+    quantity: int = Field(gt=0)
+
+
+class OrderStatus(str, Enum):
+    pending = "pending"
+    confirmed = "confirmed"
+    processing = "processing"
+    shipped = "shipped"
+    delivered = "delivered"
+    cancelled = "cancelled"
+
+
+class OrderCreate(BaseModel):
+    customer_id: int
+    items: list[OrderItemCreate]
+
+
+class OrderItemResponse(BaseModel):
+    product_id: int
+    quantity: int
+    unit_price: float
+    item_total: float
+
+
+class OrderResponse(BaseModel):
+    order_id: int
+    customer_id: int
+    total_price: float
+    created_at: datetime
+    status: OrderStatus
+    items: list[OrderItemResponse]
+
+
