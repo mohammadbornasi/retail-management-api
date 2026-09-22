@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from enum import Enum
 
@@ -17,13 +17,12 @@ class ProductCreate(BaseModel):
 
 
 class ProductResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     price: float
     stock: int
-
-    class Config:
-        from_attributes = True
 
 
 class CustomerCreate(BaseModel):
@@ -42,13 +41,12 @@ class CustomerCreate(BaseModel):
 
 
 class CustomerResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     email: str
     phone: str
-
-    class Config:
-        from_attributes = True
 
 
 class OrderItemCreate(BaseModel):
@@ -88,5 +86,4 @@ class OrderResponse(BaseModel):
     created_at: datetime
     status: OrderStatus
     items: list[OrderItemResponse]
-
 

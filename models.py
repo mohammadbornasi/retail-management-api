@@ -2,7 +2,7 @@ from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 class Product(Base):
@@ -27,21 +27,20 @@ class Order(Base):
     __tablename__ = "orders"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-
     customer_id: Mapped[int] = mapped_column(
         ForeignKey("customers.id"),
         nullable=False,
     )
-
     total_price: Mapped[float] = mapped_column(
         default=0,
         nullable=False,
     )
-
-    status: Mapped[str] = mapped_column(default="pending", nullable=False)
-
+    status: Mapped[str] = mapped_column(
+        default="pending",
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow,
+        default=lambda: datetime.now(UTC),
         nullable=False,
     )
 

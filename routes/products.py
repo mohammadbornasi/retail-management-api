@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from database import SessionLocal
+from database import get_db
 from models import Product
 from schemas import ProductCreate, ProductResponse
 
@@ -11,13 +11,6 @@ router = APIRouter(
     tags=["Products"],
 )
 
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @router.post("/", response_model=ProductResponse)
