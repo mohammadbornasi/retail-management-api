@@ -21,3 +21,10 @@ Thumbs.db
 
 # Pytest
 .pytest_cache/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+*.cover
+*,cover

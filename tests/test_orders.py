@@ -1,3 +1,6 @@
+from models import Product
+
+
 def update_order_status(client, order_id, status):
     return client.patch(
         f"/orders/{order_id}/status",
@@ -601,6 +604,20 @@ def test_update_order_item_not_found(client):
     }
 
 
+def test_update_order_item_order_not_found(client):
+    response = client.patch(
+        "/orders/9999/items/1",
+        json={
+            "quantity": 2,
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Order not found"
+    }
+
+
 def test_update_order_item_invalid_quantity(client):
     customer_id = create_customer(client)
 
@@ -710,6 +727,17 @@ def test_delete_order_item_not_found(client):
     }
 
 
+def test_delete_order_item_order_not_found(client):
+    response = client.delete(
+        "/orders/9999/items/1"
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Order not found"
+    }
+
+
 def test_confirm_order_reduces_stock(client):
     customer_id = create_customer(client)
 
@@ -797,6 +825,106 @@ def test_confirm_order_insufficient_stock(client):
 
     assert product_response.status_code == 200
     assert product_response.json()["stock"] == 2
+
+
+def test_confirm_order_product_not_found(client, db):
+    customer_id = create_customer(client)
+
+    product_id = create_product(
+        client,
+        price=100,
+        stock=10,
+    )
+
+    order = create_order(
+        client,
+        customer_id,
+        product_id,
+        quantity=2,
+    )
+
+    order_id = order["order_id"]
+
+    product = db.query(Product).filter(
+        Product.id == product_id
+    ).first()
+
+    assert product is not None
+
+    db.delete(product)
+    db.commit()
+
+    response = update_order_status(
+        client,
+        order_id,
+        "confirmed",
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": f"Product {product_id} not found"
+    }
+
+    order_response = client.get(
+        f"/orders/{order_id}"
+    )
+
+    assert order_response.status_code == 200
+    assert order_response.json()["status"] == "pending"
+
+
+def test_cancel_confirmed_order_product_not_found(client, db):
+    customer_id = create_customer(client)
+
+    product_id = create_product(
+        client,
+        price=100,
+        stock=10,
+    )
+
+    order = create_order(
+        client,
+        customer_id,
+        product_id,
+        quantity=2,
+    )
+
+    order_id = order["order_id"]
+
+    confirm_response = update_order_status(
+        client,
+        order_id,
+        "confirmed",
+    )
+
+    assert confirm_response.status_code == 200
+
+    product = db.query(Product).filter(
+        Product.id == product_id
+    ).first()
+
+    assert product is not None
+
+    db.delete(product)
+    db.commit()
+
+    response = update_order_status(
+        client,
+        order_id,
+        "cancelled",
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": f"Product {product_id} not found"
+    }
+
+    order_response = client.get(
+        f"/orders/{order_id}"
+    )
+
+    assert order_response.status_code == 200
+    assert order_response.json()["status"] == "confirmed"
 
 
 def test_confirm_order_does_not_reduce_stock_twice(client):
