@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Customer, Order, OrderItem, Product
+from models import Customer, Order, OrderItem, Product, InventoryTransaction
 from schemas import OrderCreate, OrderResponse, OrderStatus, OrderItemCreate, OrderItemUpdate
 
 router = APIRouter(
@@ -201,7 +201,17 @@ def update_order_status(
 
             for item in order_items:
                 product = products[item.product_id]
+
                 product.stock -= item.quantity
+
+                inventory_transaction = InventoryTransaction(
+                    product_id=product.id,
+                    quantity=-item.quantity,
+                    transaction_type="sale",
+                    reason=f"Order {order.id} confirmed",
+                )
+
+                db.add(inventory_transaction)
 
             order.status = OrderStatus.confirmed.value
 
@@ -223,6 +233,15 @@ def update_order_status(
                     )
 
                 product.stock += item.quantity
+
+                inventory_transaction = InventoryTransaction(
+                    product_id=product.id,
+                    quantity=item.quantity,
+                    transaction_type="order_cancelled",
+                    reason=f"Order {order.id} cancelled",
+                )
+
+                db.add(inventory_transaction)
 
             order.status = OrderStatus.cancelled.value
 
@@ -261,6 +280,7 @@ def update_order_status(
     except Exception:
         db.rollback()
         raise
+
     
 
 

@@ -68,3 +68,31 @@ class OrderItem(Base):
     unit_price: Mapped[float] = mapped_column(
         nullable=False,
     )
+
+
+class InventoryTransaction(Base):
+    __tablename__ = "inventory_transactions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    product_id: Mapped[int] = mapped_column(
+        ForeignKey("products.id"),
+        nullable=False,
+    )
+
+    quantity: Mapped[int] = mapped_column(nullable=False)
+
+    transaction_type: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+    )
+
+    reason: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )

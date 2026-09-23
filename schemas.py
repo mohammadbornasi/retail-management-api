@@ -87,3 +87,27 @@ class OrderResponse(BaseModel):
     status: OrderStatus
     items: list[OrderItemResponse]
 
+
+class InventoryTransactionType(str, Enum):
+    purchase = "purchase"
+    sale = "sale"
+    order_cancelled = "order_cancelled"
+    adjustment = "adjustment"
+
+
+class InventoryTransactionCreate(BaseModel):
+    quantity: int
+    transaction_type: InventoryTransactionType
+    reason: str | None = Field(
+        default=None,
+        max_length=255,
+    )
+
+
+class InventoryTransactionResponse(BaseModel):
+    id: int
+    product_id: int
+    quantity: int
+    transaction_type: InventoryTransactionType
+    reason: str | None
+    created_at: datetime

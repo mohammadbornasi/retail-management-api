@@ -1267,3 +1267,269 @@ def test_order_items_cannot_be_deleted_after_confirmation(client):
     assert response.json() == {
         "detail": "Items can only be deleted from pending orders"
     }
+
+
+def test_confirm_order_creates_sale_inventory_transaction(client):
+    customer_response = client.post(
+        "/customers/",
+        json={
+            "name": "Ali",
+            "email": "ali@example.com",
+            "phone": "09120000000",
+        },
+    )
+
+    customer_id = customer_response.json()["id"]
+
+    product_response = client.post(
+        "/products/",
+        json={
+            "name": "Keyboard",
+            "price": 50,
+            "stock": 10,
+        },
+    )
+
+    product_id = product_response.json()["id"]
+
+    order_response = client.post(
+        "/orders/",
+        json={
+            "customer_id": customer_id,
+            "items": [
+                {
+                    "product_id": product_id,
+                    "quantity": 3,
+                }
+            ],
+        },
+    )
+
+    assert order_response.status_code == 200
+
+    order_id = order_response.json()["order_id"]
+
+    response = client.patch(
+        f"/orders/{order_id}/status",
+        params={"new_status": "confirmed"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "confirmed"
+
+    product = client.get(
+        f"/products/{product_id}"
+    ).json()
+
+    assert product["stock"] == 7
+
+    inventory_response = client.get(
+        f"/products/{product_id}/inventory"
+    )
+
+    assert inventory_response.status_code == 200
+
+    transactions = inventory_response.json()
+
+    assert len(transactions) == 1
+    assert transactions[0]["quantity"] == -3
+    assert transactions[0]["transaction_type"] == "sale"
+    assert transactions[0]["reason"] == f"Order {order_id} confirmed"
+
+
+def test_cancel_confirmed_order_creates_cancel_transaction(client):
+    customer_response = client.post(
+        "/customers/",
+        json={
+            "name": "Reza",
+            "email": "reza@example.com",
+            "phone": "09121111111",
+        },
+    )
+
+    customer_id = customer_response.json()["id"]
+
+    product_response = client.post(
+        "/products/",
+        json={
+            "name": "Mouse",
+            "price": 20,
+            "stock": 10,
+        },
+    )
+
+    product_id = product_response.json()["id"]
+
+    order_response = client.post(
+        "/orders/",
+        json={
+            "customer_id": customer_id,
+            "items": [
+                {
+                    "product_id": product_id,
+                    "quantity": 4,
+                }
+            ],
+        },
+    )
+
+    order_id = order_response.json()["order_id"]
+
+    confirm_response = client.patch(
+        f"/orders/{order_id}/status",
+        params={"new_status": "confirmed"},
+    )
+
+    assert confirm_response.status_code == 200
+
+    cancel_response = client.patch(
+        f"/orders/{order_id}/status",
+        params={"new_status": "cancelled"},
+    )
+
+    assert cancel_response.status_code == 200
+    assert cancel_response.json()["status"] == "cancelled"
+
+    product = client.get(
+        f"/products/{product_id}"
+    ).json()
+
+    assert product["stock"] == 10
+
+    inventory_response = client.get(
+        f"/products/{product_id}/inventory"
+    )
+
+    transactions = inventory_response.json()
+
+    assert len(transactions) == 2
+
+    assert transactions[0]["quantity"] == 4
+    assert transactions[0]["transaction_type"] == "order_cancelled"
+
+    assert transactions[1]["quantity"] == -4
+    assert transactions[1]["transaction_type"] == "sale"
+
+
+def test_confirm_order_with_insufficient_stock_creates_no_inventory_transaction(
+    client,
+):
+    customer_response = client.post(
+        "/customers/",
+        json={
+            "name": "Hassan",
+            "email": "hassan@example.com",
+            "phone": "09122222222",
+        },
+    )
+
+    customer_id = customer_response.json()["id"]
+
+    product_response = client.post(
+        "/products/",
+        json={
+            "name": "Monitor",
+            "price": 200,
+            "stock": 2,
+        },
+    )
+
+    product_id = product_response.json()["id"]
+
+    order_response = client.post(
+        "/orders/",
+        json={
+            "customer_id": customer_id,
+            "items": [
+                {
+                    "product_id": product_id,
+                    "quantity": 5,
+                }
+            ],
+        },
+    )
+
+    order_id = order_response.json()["order_id"]
+
+    response = client.patch(
+        f"/orders/{order_id}/status",
+        params={"new_status": "confirmed"},
+    )
+
+    assert response.status_code == 400
+    assert "Not enough stock" in response.json()["detail"]
+
+    product = client.get(
+        f"/products/{product_id}"
+    ).json()
+
+    assert product["stock"] == 2
+
+    inventory_response = client.get(
+        f"/products/{product_id}/inventory"
+    )
+
+    assert inventory_response.status_code == 200
+    assert inventory_response.json() == []
+
+
+def test_pending_order_cancellation_creates_no_inventory_transaction(
+    client,
+):
+    customer_response = client.post(
+        "/customers/",
+        json={
+            "name": "Mehdi",
+            "email": "mehdi@example.com",
+            "phone": "09123333333",
+        },
+    )
+
+    customer_id = customer_response.json()["id"]
+
+    product_response = client.post(
+        "/products/",
+        json={
+            "name": "Headset",
+            "price": 30,
+            "stock": 8,
+        },
+    )
+
+    product_id = product_response.json()["id"]
+
+    order_response = client.post(
+        "/orders/",
+        json={
+            "customer_id": customer_id,
+            "items": [
+                {
+                    "product_id": product_id,
+                    "quantity": 3,
+                }
+            ],
+        },
+    )
+
+    order_id = order_response.json()["order_id"]
+
+    response = client.patch(
+        f"/orders/{order_id}/status",
+        params={"new_status": "cancelled"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "cancelled"
+
+    product = client.get(
+        f"/products/{product_id}"
+    ).json()
+
+    assert product["stock"] == 8
+
+    inventory_response = client.get(
+        f"/products/{product_id}/inventory"
+    )
+
+    assert inventory_response.status_code == 200
+    assert inventory_response.json() == []
