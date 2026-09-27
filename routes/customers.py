@@ -1,9 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+from math import ceil
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Customer
-from schemas import CustomerCreate, CustomerResponse
+from schemas import (
+    CustomerCreate,
+    CustomerResponse,
+    CustomerListResponse,
+)
 
 
 router = APIRouter(
@@ -42,9 +47,70 @@ def create_customer(
     return new_customer
 
 
-@router.get("/", response_model=list[CustomerResponse])
-def get_customers(db: Session = Depends(get_db)):
-    return db.query(Customer).all()
+@router.get("/", response_model=CustomerListResponse)
+def get_customers(
+    search: str | None = None,
+    sort_by: str = Query("id"),
+    sort_order: str = Query("asc"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Customer)
+
+    if search:
+        search_pattern = f"%{search}%"
+
+        query = query.filter(
+            (Customer.name.ilike(search_pattern))
+            | (Customer.email.ilike(search_pattern))
+            | (Customer.phone.ilike(search_pattern))
+        )
+
+    sort_columns = {
+        "id": Customer.id,
+        "name": Customer.name,
+        "email": Customer.email,
+        "phone": Customer.phone,
+    }
+
+    if sort_by not in sort_columns:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid sort_by. Allowed values: id, name, email, phone",
+        )
+
+    if sort_order not in {"asc", "desc"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid sort_order. Allowed values: asc, desc",
+        )
+
+    sort_column = sort_columns[sort_by]
+
+    if sort_order == "desc":
+        query = query.order_by(sort_column.desc())
+    else:
+        query = query.order_by(sort_column.asc())
+
+    total = query.count()
+
+    customers = (
+        query
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+
+    pages = ceil(total / limit) if total else 0
+
+    return {
+        "items": customers,
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "pages": pages,
+    }
 
 
 @router.get("/{customer_id}", response_model=CustomerResponse)

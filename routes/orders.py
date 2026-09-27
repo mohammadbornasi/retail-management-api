@@ -1,9 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-
+from math import ceil
 from database import get_db
 from models import Customer, Order, OrderItem, Product, InventoryTransaction
-from schemas import OrderCreate, OrderResponse, OrderStatus, OrderItemCreate, OrderItemUpdate
+from schemas import (
+    OrderCreate,
+    OrderResponse,
+    OrderStatus,
+    OrderItemCreate,
+    OrderItemUpdate,
+    OrderListResponse,
+)
 
 router = APIRouter(
     prefix="/orders",
@@ -64,7 +71,7 @@ def create_order(
     db.add(new_order)
     db.flush()
 
-    # Create order items and update stock
+    # Create order
     total_price = 0
 
     for item in order.items:
@@ -119,6 +126,109 @@ ALLOWED_STATUS_TRANSITIONS = {
     OrderStatus.delivered.value: set(),
     OrderStatus.cancelled.value: set(),
 }
+
+
+
+@router.get("/", response_model=OrderListResponse)
+def list_orders(
+    customer_id: int | None = None,
+    status: OrderStatus | None = None,
+    product_name: str | None = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Order)
+
+    if customer_id is not None:
+        query = query.filter(Order.customer_id == customer_id)
+
+    if status is not None:
+        query = query.filter(Order.status == status.value)
+
+    if product_name:
+        product_order_ids = (
+            db.query(OrderItem.order_id)
+            .join(Product, Product.id == OrderItem.product_id)
+            .filter(Product.name.ilike(f"%{product_name}%"))
+        )
+
+        query = query.filter(Order.id.in_(product_order_ids))
+
+    total = query.count()
+
+    orders = (
+        query
+        .order_by(Order.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+
+    pages = ceil(total / limit) if total else 0
+
+    return {
+        "items": [
+            {
+                "order_id": order.id,
+                "customer_id": order.customer_id,
+                "total_price": order.total_price,
+                "created_at": order.created_at,
+                "status": order.status,
+            }
+            for order in orders
+        ],
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "pages": pages,
+    }
+    
+
+
+@router.get("/{order_id}", response_model=OrderResponse)
+def get_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+):
+    order = (
+        db.query(Order)
+        .filter(Order.id == order_id)
+        .first()
+    )
+
+    if not order:
+        raise HTTPException(
+            status_code=404,
+            detail="Order not found",
+        )
+
+    order_items = (
+        db.query(OrderItem)
+        .filter(OrderItem.order_id == order_id)
+        .all()
+    )
+
+    items = []
+
+    for item in order_items:
+        items.append(
+            {
+                "product_id": item.product_id,
+                "quantity": item.quantity,
+                "unit_price": item.unit_price,
+                "item_total": item.unit_price * item.quantity,
+            }
+        )
+
+    return {
+        "order_id": order.id,
+        "customer_id": order.customer_id,
+        "total_price": order.total_price,
+        "created_at": order.created_at,
+        "items": items,
+        "status": order.status,
+    }
 
 
 @router.patch("/{order_id}/status")
@@ -281,52 +391,6 @@ def update_order_status(
         db.rollback()
         raise
 
-    
-
-
-@router.get("/{order_id}", response_model=OrderResponse)
-def get_order(
-    order_id: int,
-    db: Session = Depends(get_db),
-):
-    order = (
-        db.query(Order)
-        .filter(Order.id == order_id)
-        .first()
-    )
-
-    if not order:
-        raise HTTPException(
-            status_code=404,
-            detail="Order not found",
-        )
-
-    order_items = (
-        db.query(OrderItem)
-        .filter(OrderItem.order_id == order_id)
-        .all()
-    )
-
-    items = []
-
-    for item in order_items:
-        items.append(
-            {
-                "product_id": item.product_id,
-                "quantity": item.quantity,
-                "unit_price": item.unit_price,
-                "item_total": item.unit_price * item.quantity,
-            }
-        )
-
-    return {
-        "order_id": order.id,
-        "customer_id": order.customer_id,
-        "total_price": order.total_price,
-        "created_at": order.created_at,
-        "items": items,
-        "status": order.status,
-    }
 
 
 @router.post("/{order_id}/items")

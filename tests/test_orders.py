@@ -1533,3 +1533,480 @@ def test_pending_order_cancellation_creates_no_inventory_transaction(
 
     assert inventory_response.status_code == 200
     assert inventory_response.json() == []
+
+
+def test_list_orders(client):
+    customer_id = create_customer(client)
+
+    product_id = create_product(
+        client,
+        name="Laptop",
+        price=1500,
+        stock=10,
+    )
+
+    create_order(
+        client,
+        customer_id,
+        product_id,
+        quantity=2,
+    )
+
+    response = client.get("/orders/")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "items" in data
+    assert "page" in data
+    assert "limit" in data
+    assert "total" in data
+    assert "pages" in data
+
+    assert data["page"] == 1
+    assert data["limit"] == 10
+    assert data["total"] == 1
+    assert data["pages"] == 1
+
+    assert len(data["items"]) == 1
+
+    order = data["items"][0]
+
+    assert order["order_id"] > 0
+    assert order["customer_id"] == customer_id
+    assert order["total_price"] == 3000
+    assert order["status"] == "pending"
+
+
+def test_list_orders_pagination(client):
+    customer_id = create_customer(client)
+
+    product_id = create_product(
+        client,
+        name="Laptop",
+        price=100,
+        stock=100,
+    )
+
+    for _ in range(5):
+        create_order(
+            client,
+            customer_id,
+            product_id,
+            quantity=1,
+        )
+
+    response = client.get(
+        "/orders/",
+        params={
+            "page": 1,
+            "limit": 2,
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["page"] == 1
+    assert data["limit"] == 2
+    assert data["total"] == 5
+    assert data["pages"] == 3
+    assert len(data["items"]) == 2
+
+
+def test_list_orders_second_page(client):
+    customer_id = create_customer(client)
+
+    product_id = create_product(
+        client,
+        name="Laptop",
+        price=100,
+        stock=100,
+    )
+
+    for _ in range(5):
+        create_order(
+            client,
+            customer_id,
+            product_id,
+            quantity=1,
+        )
+
+    response = client.get(
+        "/orders/",
+        params={
+            "page": 2,
+            "limit": 2,
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["page"] == 2
+    assert data["limit"] == 2
+    assert data["total"] == 5
+    assert data["pages"] == 3
+    assert len(data["items"]) == 2
+
+
+def test_list_orders_page_beyond_last_page(client):
+    customer_id = create_customer(client)
+
+    product_id = create_product(
+        client,
+        name="Laptop",
+        price=100,
+        stock=100,
+    )
+
+    for _ in range(3):
+        create_order(
+            client,
+            customer_id,
+            product_id,
+            quantity=1,
+        )
+
+    response = client.get(
+        "/orders/",
+        params={
+            "page": 10,
+            "limit": 2,
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["page"] == 10
+    assert data["limit"] == 2
+    assert data["total"] == 3
+    assert data["pages"] == 2
+    assert data["items"] == []
+
+
+def test_list_orders_filter_by_customer_id(client):
+    customer_1 = create_customer(client)
+
+    customer_2_response = client.post(
+        "/customers/",
+        json={
+            "name": "Reza Ahmadi",
+            "email": "reza@example.com",
+            "phone": "09121111111",
+        },
+    )
+
+    assert customer_2_response.status_code == 200
+
+    customer_2 = customer_2_response.json()["id"]
+
+    product_id = create_product(
+        client,
+        name="Laptop",
+        price=100,
+        stock=100,
+    )
+
+    create_order(
+        client,
+        customer_1,
+        product_id,
+        quantity=1,
+    )
+
+    create_order(
+        client,
+        customer_2,
+        product_id,
+        quantity=2,
+    )
+
+    response = client.get(
+        "/orders/",
+        params={
+            "customer_id": customer_2,
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["customer_id"] == customer_2
+    assert data["items"][0]["total_price"] == 200
+
+
+def test_list_orders_filter_by_status(client):
+    customer_id = create_customer(client)
+
+    product_id = create_product(
+        client,
+        name="Laptop",
+        price=100,
+        stock=100,
+    )
+
+    pending_order = create_order(
+        client,
+        customer_id,
+        product_id,
+        quantity=1,
+    )
+
+    confirmed_order = create_order(
+        client,
+        customer_id,
+        product_id,
+        quantity=2,
+    )
+
+    confirm_response = update_order_status(
+        client,
+        confirmed_order["order_id"],
+        "confirmed",
+    )
+
+    assert confirm_response.status_code == 200
+
+    response = client.get(
+        "/orders/",
+        params={
+            "status": "confirmed",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+
+    order = data["items"][0]
+
+    assert order["order_id"] == confirmed_order["order_id"]
+    assert order["status"] == "confirmed"
+
+    assert order["order_id"] != pending_order["order_id"]
+
+
+def test_list_orders_filter_by_product_name(client):
+    customer_id = create_customer(client)
+
+    laptop_id = create_product(
+        client,
+        name="Gaming Laptop",
+        price=1500,
+        stock=20,
+    )
+
+    mouse_id = create_product(
+        client,
+        name="Wireless Mouse",
+        price=50,
+        stock=20,
+    )
+
+    laptop_order = create_order(
+        client,
+        customer_id,
+        laptop_id,
+        quantity=1,
+    )
+
+    create_order(
+        client,
+        customer_id,
+        mouse_id,
+        quantity=2,
+    )
+
+    response = client.get(
+        "/orders/",
+        params={
+            "product_name": "Laptop",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+
+    order = data["items"][0]
+
+    assert order["order_id"] == laptop_order["order_id"]
+    assert order["total_price"] == 1500
+
+
+def test_list_orders_product_name_case_insensitive(client):
+    customer_id = create_customer(client)
+
+    product_id = create_product(
+        client,
+        name="Gaming Laptop",
+        price=1500,
+        stock=20,
+    )
+
+    order = create_order(
+        client,
+        customer_id,
+        product_id,
+        quantity=1,
+    )
+
+    response = client.get(
+        "/orders/",
+        params={
+            "product_name": "lApToP",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["order_id"] == order["order_id"]
+
+
+def test_list_orders_combined_filters(client):
+    customer_1 = create_customer(client)
+
+    customer_2_response = client.post(
+        "/customers/",
+        json={
+            "name": "Reza Ahmadi",
+            "email": "reza@example.com",
+            "phone": "09121111111",
+        },
+    )
+
+    assert customer_2_response.status_code == 200
+
+    customer_2 = customer_2_response.json()["id"]
+
+    laptop_id = create_product(
+        client,
+        name="Gaming Laptop",
+        price=1500,
+        stock=20,
+    )
+
+    mouse_id = create_product(
+        client,
+        name="Wireless Mouse",
+        price=50,
+        stock=20,
+    )
+
+    # Customer 1 + Laptop + pending
+    create_order(
+        client,
+        customer_1,
+        laptop_id,
+        quantity=1,
+    )
+
+    # Customer 2 + Laptop + pending
+    target_order = create_order(
+        client,
+        customer_2,
+        laptop_id,
+        quantity=2,
+    )
+
+    # Customer 2 + Mouse + pending
+    create_order(
+        client,
+        customer_2,
+        mouse_id,
+        quantity=1,
+    )
+
+    response = client.get(
+        "/orders/",
+        params={
+            "customer_id": customer_2,
+            "status": "pending",
+            "product_name": "Laptop",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+
+    order = data["items"][0]
+
+    assert order["order_id"] == target_order["order_id"]
+    assert order["customer_id"] == customer_2
+    assert order["status"] == "pending"
+    assert order["total_price"] == 3000
+
+
+def test_list_orders_invalid_page(client):
+    response = client.get(
+        "/orders/",
+        params={
+            "page": 0,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_list_orders_invalid_limit_zero(client):
+    response = client.get(
+        "/orders/",
+        params={
+            "limit": 0,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_list_orders_invalid_limit_too_large(client):
+    response = client.get(
+        "/orders/",
+        params={
+            "limit": 101,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_list_orders_no_results(client):
+    response = client.get(
+        "/orders/",
+        params={
+            "product_name": "NonExistingProduct",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["items"] == []
+    assert data["total"] == 0
+    assert data["pages"] == 0
+    assert data["page"] == 1
+    assert data["limit"] == 10

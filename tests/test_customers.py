@@ -37,10 +37,18 @@ def test_get_customers(client):
 
     data = response.json()
 
-    assert len(data) == 1
-    assert data[0]["name"] == "Ali Ahmadi"
-    assert data[0]["email"] == "ali@example.com"
-    assert data[0]["phone"] == "09123456789"
+    assert data["page"] == 1
+    assert data["limit"] == 10
+    assert data["total"] == 1
+    assert data["pages"] == 1
+
+    assert len(data["items"]) == 1
+
+    customer = data["items"][0]
+
+    assert customer["name"] == "Ali Ahmadi"
+    assert customer["email"] == "ali@example.com"
+    assert customer["phone"] == "09123456789"
 
 
 def test_create_customer_duplicate_email(client):
@@ -231,3 +239,426 @@ def test_delete_customer_not_found(client):
     assert response.json() == {
         "detail": "Customer not found"
     }
+
+
+def test_list_customers_pagination(client):
+    for i in range(15):
+        response = client.post(
+            "/customers/",
+            json={
+                "name": f"Customer {i}",
+                "email": f"customer{i}@example.com",
+                "phone": f"091200000{i:02d}",
+            },
+        )
+        assert response.status_code == 200
+
+    response = client.get("/customers/?page=1&limit=10")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["page"] == 1
+    assert data["limit"] == 10
+    assert data["total"] == 15
+    assert data["pages"] == 2
+    assert len(data["items"]) == 10
+
+
+def test_list_customers_second_page(client):
+    for i in range(15):
+        response = client.post(
+            "/customers/",
+            json={
+                "name": f"Customer {i}",
+                "email": f"customer{i}@example.com",
+                "phone": f"091200000{i:02d}",
+            },
+        )
+        assert response.status_code == 200
+
+    response = client.get("/customers/?page=2&limit=10")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["page"] == 2
+    assert data["limit"] == 10
+    assert data["total"] == 15
+    assert data["pages"] == 2
+    assert len(data["items"]) == 5
+
+
+def test_list_customers_page_beyond_last_page(client):
+    for i in range(5):
+        response = client.post(
+            "/customers/",
+            json={
+                "name": f"Customer {i}",
+                "email": f"customer{i}@example.com",
+                "phone": f"091200000{i:02d}",
+            },
+        )
+        assert response.status_code == 200
+
+    response = client.get("/customers/?page=3&limit=10")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["page"] == 3
+    assert data["limit"] == 10
+    assert data["total"] == 5
+    assert data["pages"] == 1
+    assert data["items"] == []
+
+
+def test_list_customers_search_by_name(client):
+    customers = [
+        {
+            "name": "Ali Ahmadi",
+            "email": "ali@example.com",
+            "phone": "09121111111",
+        },
+        {
+            "name": "Reza Karimi",
+            "email": "reza@example.com",
+            "phone": "09122222222",
+        },
+    ]
+
+    for customer in customers:
+        response = client.post("/customers/", json=customer)
+        assert response.status_code == 200
+
+    response = client.get("/customers/?search=Ali")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["name"] == "Ali Ahmadi"
+
+
+def test_list_customers_search_by_email(client):
+    customers = [
+        {
+            "name": "Ali Ahmadi",
+            "email": "ali@example.com",
+            "phone": "09121111111",
+        },
+        {
+            "name": "Reza Karimi",
+            "email": "reza@example.com",
+            "phone": "09122222222",
+        },
+    ]
+
+    for customer in customers:
+        response = client.post("/customers/", json=customer)
+        assert response.status_code == 200
+
+    response = client.get("/customers/?search=reza@example.com")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["email"] == "reza@example.com"
+
+
+def test_list_customers_search_by_phone(client):
+    customers = [
+        {
+            "name": "Ali Ahmadi",
+            "email": "ali@example.com",
+            "phone": "09121111111",
+        },
+        {
+            "name": "Reza Karimi",
+            "email": "reza@example.com",
+            "phone": "09122222222",
+        },
+    ]
+
+    for customer in customers:
+        response = client.post("/customers/", json=customer)
+        assert response.status_code == 200
+
+    response = client.get("/customers/?search=09122222222")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["phone"] == "09122222222"
+
+
+def test_list_customers_search_case_insensitive(client):
+    response = client.post(
+        "/customers/",
+        json={
+            "name": "Ali Ahmadi",
+            "email": "ali@example.com",
+            "phone": "09121111111",
+        },
+    )
+
+    assert response.status_code == 200
+
+    response = client.get("/customers/?search=ALI")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert data["items"][0]["name"] == "Ali Ahmadi"
+
+
+def test_list_customers_search_no_results(client):
+    response = client.post(
+        "/customers/",
+        json={
+            "name": "Ali Ahmadi",
+            "email": "ali@example.com",
+            "phone": "09121111111",
+        },
+    )
+
+    assert response.status_code == 200
+
+    response = client.get("/customers/?search=NotFound")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["items"] == []
+    assert data["total"] == 0
+    assert data["pages"] == 0
+
+
+def test_list_customers_combined_search_and_pagination(client):
+    for i in range(15):
+        response = client.post(
+            "/customers/",
+            json={
+                "name": f"Ali Customer {i}",
+                "email": f"ali{i}@example.com",
+                "phone": f"091200000{i:02d}",
+            },
+        )
+        assert response.status_code == 200
+
+    response = client.get(
+        "/customers/?search=Ali&page=2&limit=10"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["page"] == 2
+    assert data["limit"] == 10
+    assert data["total"] == 15
+    assert data["pages"] == 2
+    assert len(data["items"]) == 5
+
+
+def test_list_customers_sort_by_id_asc(client):
+    for i in range(3):
+        response = client.post(
+            "/customers/",
+            json={
+                "name": f"Customer {i}",
+                "email": f"customer{i}@example.com",
+                "phone": f"091200000{i:02d}",
+            },
+        )
+        assert response.status_code == 200
+
+    response = client.get(
+        "/customers/?sort_by=id&sort_order=asc"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    ids = [customer["id"] for customer in data["items"]]
+
+    assert ids == sorted(ids)
+
+
+def test_list_customers_sort_by_name_asc(client):
+    names = ["Zahra", "Ali", "Reza"]
+
+    for i, name in enumerate(names):
+        response = client.post(
+            "/customers/",
+            json={
+                "name": name,
+                "email": f"customer{i}@example.com",
+                "phone": f"091200000{i:02d}",
+            },
+        )
+        assert response.status_code == 200
+
+    response = client.get(
+        "/customers/?sort_by=name&sort_order=asc"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    names = [customer["name"] for customer in data["items"]]
+
+    assert names == ["Ali", "Reza", "Zahra"]
+
+
+def test_list_customers_sort_by_name_desc(client):
+    names = ["Zahra", "Ali", "Reza"]
+
+    for i, name in enumerate(names):
+        response = client.post(
+            "/customers/",
+            json={
+                "name": name,
+                "email": f"customer{i}@example.com",
+                "phone": f"091200000{i:02d}",
+            },
+        )
+        assert response.status_code == 200
+
+    response = client.get(
+        "/customers/?sort_by=name&sort_order=desc"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    names = [customer["name"] for customer in data["items"]]
+
+    assert names == ["Zahra", "Reza", "Ali"]
+
+
+def test_list_customers_sort_by_email(client):
+    emails = [
+        "z@example.com",
+        "a@example.com",
+        "m@example.com",
+    ]
+
+    for i, email in enumerate(emails):
+        response = client.post(
+            "/customers/",
+            json={
+                "name": f"Customer {i}",
+                "email": email,
+                "phone": f"091200000{i:02d}",
+            },
+        )
+        assert response.status_code == 200
+
+    response = client.get(
+        "/customers/?sort_by=email&sort_order=asc"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    emails = [customer["email"] for customer in data["items"]]
+
+    assert emails == [
+        "a@example.com",
+        "m@example.com",
+        "z@example.com",
+    ]
+
+
+def test_list_customers_sort_by_phone(client):
+    phones = [
+        "09123333333",
+        "09121111111",
+        "09122222222",
+    ]
+
+    for i, phone in enumerate(phones):
+        response = client.post(
+            "/customers/",
+            json={
+                "name": f"Customer {i}",
+                "email": f"customer{i}@example.com",
+                "phone": phone,
+            },
+        )
+        assert response.status_code == 200
+
+    response = client.get(
+        "/customers/?sort_by=phone&sort_order=asc"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    phones = [customer["phone"] for customer in data["items"]]
+
+    assert phones == [
+        "09121111111",
+        "09122222222",
+        "09123333333",
+    ]
+
+
+def test_list_customers_invalid_page(client):
+    response = client.get("/customers/?page=0")
+
+    assert response.status_code == 422
+
+
+def test_list_customers_invalid_limit_zero(client):
+    response = client.get("/customers/?limit=0")
+
+    assert response.status_code == 422
+
+
+def test_list_customers_invalid_limit_too_large(client):
+    response = client.get("/customers/?limit=101")
+
+    assert response.status_code == 422
+
+
+def test_list_customers_invalid_sort_by(client):
+    response = client.get(
+        "/customers/?sort_by=invalid"
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Invalid sort_by. Allowed values: id, name, email, phone"
+    )
+
+
+def test_list_customers_invalid_sort_order(client):
+    response = client.get(
+        "/customers/?sort_order=invalid"
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Invalid sort_order. Allowed values: asc, desc"
+    )
