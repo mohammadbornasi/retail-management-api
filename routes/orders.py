@@ -2,7 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from math import ceil
 from database import get_db
-from models import Customer, Order, OrderItem, Product, InventoryTransaction
+from models import (
+    Customer,
+    Order,
+    OrderItem,
+    Product,
+    InventoryTransaction,
+    User,
+)
 from schemas import (
     OrderCreate,
     OrderResponse,
@@ -11,6 +18,8 @@ from schemas import (
     OrderItemUpdate,
     OrderListResponse,
 )
+from security import get_current_user
+
 
 router = APIRouter(
     prefix="/orders",
@@ -22,6 +31,7 @@ router = APIRouter(
 def create_order(
     order: OrderCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     # Check customer
     customer = (
@@ -137,6 +147,7 @@ def list_orders(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     query = db.query(Order)
 
@@ -190,6 +201,7 @@ def list_orders(
 def get_order(
     order_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     order = (
         db.query(Order)
@@ -236,6 +248,7 @@ def update_order_status(
     order_id: int,
     new_status: OrderStatus,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     try:
         order = (
@@ -398,6 +411,7 @@ def create_order_item(
     order_id: int,
     item_data: OrderItemCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     order = (
         db.query(Order)
@@ -492,6 +506,7 @@ def delete_order_item(
     order_id: int,
     product_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     order = (
         db.query(Order)
@@ -564,6 +579,7 @@ def update_order_item(
     product_id: int,
     item_data: OrderItemUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     order = (
         db.query(Order)

@@ -6,6 +6,7 @@ from routes.customers import router as customers_router
 from routes.orders import router as orders_router
 from routes.inventory import router as inventory_router
 from routes.reports import router as reports_router
+from routes import auth
 
 
 Base.metadata.create_all(bind=engine)
@@ -22,6 +23,7 @@ app.include_router(customers_router)
 app.include_router(orders_router)
 app.include_router(inventory_router)
 app.include_router(reports_router)
+app.include_router(auth.router)
 
 @app.get("/")
 def root():

@@ -1,14 +1,16 @@
 from math import ceil
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Customer
+from models import Customer, User
 from schemas import (
     CustomerCreate,
     CustomerResponse,
     CustomerListResponse,
 )
+from security import get_current_user, require_admin
 
 
 router = APIRouter(
@@ -21,6 +23,7 @@ router = APIRouter(
 def create_customer(
     customer: CustomerCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     existing_customer = (
         db.query(Customer)
@@ -55,6 +58,7 @@ def get_customers(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     query = db.query(Customer)
 
@@ -117,6 +121,7 @@ def get_customers(
 def get_customer(
     customer_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     customer = (
         db.query(Customer)
@@ -138,6 +143,7 @@ def update_customer(
     customer_id: int,
     customer: CustomerCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     existing_customer = (
         db.query(Customer)
@@ -180,6 +186,7 @@ def update_customer(
 def delete_customer(
     customer_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     customer = (
         db.query(Customer)

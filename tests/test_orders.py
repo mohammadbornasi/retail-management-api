@@ -1,4 +1,11 @@
+import pytest
 from models import Product
+
+
+@pytest.fixture
+def auth_client(client, auth_headers):
+    client.headers.update(auth_headers)
+    return client
 
 
 def update_order_status(client, order_id, status):
@@ -69,15 +76,15 @@ def create_order(
     return response.json()
 
 
-def test_create_order(client):
-    customer_id = create_customer(client)
+def test_create_order(auth_client):
+    customer_id = create_customer(auth_client)
     product_id = create_product(
-        client,
+        auth_client,
         price=1500,
         stock=10,
     )
 
-    response = client.post(
+    response = auth_client.post(
         "/orders",
         json={
             "customer_id": customer_id,
@@ -102,24 +109,24 @@ def test_create_order(client):
     assert data["message"] == "Order created successfully"
 
 
-def test_create_order_multiple_items(client):
-    customer_id = create_customer(client)
+def test_create_order_multiple_items(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_1 = create_product(
-        client,
+        auth_client,
         name="Laptop",
         price=1500,
         stock=10,
     )
 
     product_2 = create_product(
-        client,
+        auth_client,
         name="Mouse",
         price=50,
         stock=20,
     )
 
-    response = client.post(
+    response = auth_client.post(
         "/orders",
         json={
             "customer_id": customer_id,
@@ -145,10 +152,10 @@ def test_create_order_multiple_items(client):
     assert data["status"] == "pending"
 
 
-def test_create_order_customer_not_found(client):
-    product_id = create_product(client)
+def test_create_order_customer_not_found(auth_client):
+    product_id = create_product(auth_client)
 
-    response = client.post(
+    response = auth_client.post(
         "/orders",
         json={
             "customer_id": 9999,
@@ -167,10 +174,10 @@ def test_create_order_customer_not_found(client):
     }
 
 
-def test_create_order_product_not_found(client):
-    customer_id = create_customer(client)
+def test_create_order_product_not_found(auth_client):
+    customer_id = create_customer(auth_client)
 
-    response = client.post(
+    response = auth_client.post(
         "/orders",
         json={
             "customer_id": customer_id,
@@ -189,10 +196,10 @@ def test_create_order_product_not_found(client):
     }
 
 
-def test_create_order_without_items(client):
-    customer_id = create_customer(client)
+def test_create_order_without_items(auth_client):
+    customer_id = create_customer(auth_client)
 
-    response = client.post(
+    response = auth_client.post(
         "/orders",
         json={
             "customer_id": customer_id,
@@ -206,11 +213,11 @@ def test_create_order_without_items(client):
     }
 
 
-def test_create_order_invalid_quantity(client):
-    customer_id = create_customer(client)
-    product_id = create_product(client)
+def test_create_order_invalid_quantity(auth_client):
+    customer_id = create_customer(auth_client)
+    product_id = create_product(auth_client)
 
-    response = client.post(
+    response = auth_client.post(
         "/orders",
         json={
             "customer_id": customer_id,
@@ -226,11 +233,11 @@ def test_create_order_invalid_quantity(client):
     assert response.status_code == 422
 
 
-def test_create_order_negative_quantity(client):
-    customer_id = create_customer(client)
-    product_id = create_product(client)
+def test_create_order_negative_quantity(auth_client):
+    customer_id = create_customer(auth_client)
+    product_id = create_product(auth_client)
 
-    response = client.post(
+    response = auth_client.post(
         "/orders",
         json={
             "customer_id": customer_id,
@@ -246,23 +253,23 @@ def test_create_order_negative_quantity(client):
     assert response.status_code == 422
 
 
-def test_create_order_does_not_reduce_stock(client):
-    customer_id = create_customer(client)
+def test_create_order_does_not_reduce_stock(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=3,
     )
 
-    response = client.get(
+    response = auth_client.get(
         f"/products/{product_id}"
     )
 
@@ -273,17 +280,17 @@ def test_create_order_does_not_reduce_stock(client):
     assert data["stock"] == 10
 
 
-def test_get_order(client):
-    customer_id = create_customer(client)
+def test_get_order(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=1500,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=2,
@@ -291,7 +298,7 @@ def test_get_order(client):
 
     order_id = order["order_id"]
 
-    response = client.get(
+    response = auth_client.get(
         f"/orders/{order_id}"
     )
 
@@ -314,8 +321,8 @@ def test_get_order(client):
     assert item["item_total"] == 3000
 
 
-def test_get_order_not_found(client):
-    response = client.get("/orders/9999")
+def test_get_order_not_found(auth_client):
+    response = auth_client.get("/orders/9999")
 
     assert response.status_code == 404
     assert response.json() == {
@@ -323,17 +330,17 @@ def test_get_order_not_found(client):
     }
 
 
-def test_order_item_price_is_snapshot(client):
-    customer_id = create_customer(client)
+def test_order_item_price_is_snapshot(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=2,
@@ -341,7 +348,7 @@ def test_order_item_price_is_snapshot(client):
 
     order_id = order["order_id"]
 
-    update_response = client.put(
+    update_response = auth_client.put(
         f"/products/{product_id}",
         json={
             "name": "Updated Product",
@@ -352,7 +359,7 @@ def test_order_item_price_is_snapshot(client):
 
     assert update_response.status_code == 200
 
-    response = client.get(
+    response = auth_client.get(
         f"/orders/{order_id}"
     )
 
@@ -368,25 +375,25 @@ def test_order_item_price_is_snapshot(client):
     assert item["item_total"] == 200
 
 
-def test_add_order_item(client):
-    customer_id = create_customer(client)
+def test_add_order_item(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_1 = create_product(
-        client,
+        auth_client,
         name="Laptop",
         price=1500,
         stock=10,
     )
 
     product_2 = create_product(
-        client,
+        auth_client,
         name="Mouse",
         price=50,
         stock=20,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_1,
         quantity=1,
@@ -394,7 +401,7 @@ def test_add_order_item(client):
 
     order_id = order["order_id"]
 
-    response = client.post(
+    response = auth_client.post(
         f"/orders/{order_id}/items",
         json={
             "product_id": product_2,
@@ -414,17 +421,17 @@ def test_add_order_item(client):
     assert data["total_price"] == 1650
 
 
-def test_add_existing_order_item_increases_quantity(client):
-    customer_id = create_customer(client)
+def test_add_existing_order_item_increases_quantity(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=2,
@@ -432,7 +439,7 @@ def test_add_existing_order_item_increases_quantity(client):
 
     order_id = order["order_id"]
 
-    response = client.post(
+    response = auth_client.post(
         f"/orders/{order_id}/items",
         json={
             "product_id": product_id,
@@ -451,17 +458,17 @@ def test_add_existing_order_item_increases_quantity(client):
     assert data["total_price"] == 500
 
 
-def test_add_existing_order_item_keeps_original_price(client):
-    customer_id = create_customer(client)
+def test_add_existing_order_item_keeps_original_price(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=2,
@@ -469,7 +476,7 @@ def test_add_existing_order_item_keeps_original_price(client):
 
     order_id = order["order_id"]
 
-    update_response = client.put(
+    update_response = auth_client.put(
         f"/products/{product_id}",
         json={
             "name": "Updated Product",
@@ -480,7 +487,7 @@ def test_add_existing_order_item_keeps_original_price(client):
 
     assert update_response.status_code == 200
 
-    response = client.post(
+    response = auth_client.post(
         f"/orders/{order_id}/items",
         json={
             "product_id": product_id,
@@ -498,10 +505,10 @@ def test_add_existing_order_item_keeps_original_price(client):
     assert data["total_price"] == 500
 
 
-def test_add_order_item_order_not_found(client):
-    product_id = create_product(client)
+def test_add_order_item_order_not_found(auth_client):
+    product_id = create_product(auth_client)
 
-    response = client.post(
+    response = auth_client.post(
         "/orders/9999/items",
         json={
             "product_id": product_id,
@@ -515,19 +522,19 @@ def test_add_order_item_order_not_found(client):
     }
 
 
-def test_add_order_item_product_not_found(client):
-    customer_id = create_customer(client)
+def test_add_order_item_product_not_found(auth_client):
+    customer_id = create_customer(auth_client)
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
-        create_product(client),
+        create_product(auth_client),
         quantity=1,
     )
 
     order_id = order["order_id"]
 
-    response = client.post(
+    response = auth_client.post(
         f"/orders/{order_id}/items",
         json={
             "product_id": 9999,
@@ -541,17 +548,17 @@ def test_add_order_item_product_not_found(client):
     }
 
 
-def test_update_order_item(client):
-    customer_id = create_customer(client)
+def test_update_order_item(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=2,
@@ -559,7 +566,7 @@ def test_update_order_item(client):
 
     order_id = order["order_id"]
 
-    response = client.patch(
+    response = auth_client.patch(
         f"/orders/{order_id}/items/{product_id}",
         json={
             "quantity": 5,
@@ -577,13 +584,13 @@ def test_update_order_item(client):
     assert data["total_price"] == 500
 
 
-def test_update_order_item_not_found(client):
-    customer_id = create_customer(client)
+def test_update_order_item_not_found(auth_client):
+    customer_id = create_customer(auth_client)
 
-    product_id = create_product(client)
+    product_id = create_product(auth_client)
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=1,
@@ -591,7 +598,7 @@ def test_update_order_item_not_found(client):
 
     order_id = order["order_id"]
 
-    response = client.patch(
+    response = auth_client.patch(
         f"/orders/{order_id}/items/9999",
         json={
             "quantity": 2,
@@ -604,8 +611,8 @@ def test_update_order_item_not_found(client):
     }
 
 
-def test_update_order_item_order_not_found(client):
-    response = client.patch(
+def test_update_order_item_order_not_found(auth_client):
+    response = auth_client.patch(
         "/orders/9999/items/1",
         json={
             "quantity": 2,
@@ -618,13 +625,13 @@ def test_update_order_item_order_not_found(client):
     }
 
 
-def test_update_order_item_invalid_quantity(client):
-    customer_id = create_customer(client)
+def test_update_order_item_invalid_quantity(auth_client):
+    customer_id = create_customer(auth_client)
 
-    product_id = create_product(client)
+    product_id = create_product(auth_client)
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=1,
@@ -632,7 +639,7 @@ def test_update_order_item_invalid_quantity(client):
 
     order_id = order["order_id"]
 
-    response = client.patch(
+    response = auth_client.patch(
         f"/orders/{order_id}/items/{product_id}",
         json={
             "quantity": 0,
@@ -642,25 +649,25 @@ def test_update_order_item_invalid_quantity(client):
     assert response.status_code == 422
 
 
-def test_delete_order_item(client):
-    customer_id = create_customer(client)
+def test_delete_order_item(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_1 = create_product(
-        client,
+        auth_client,
         name="Laptop",
         price=1500,
         stock=10,
     )
 
     product_2 = create_product(
-        client,
+        auth_client,
         name="Mouse",
         price=50,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_1,
         quantity=2,
@@ -668,7 +675,7 @@ def test_delete_order_item(client):
 
     order_id = order["order_id"]
 
-    add_response = client.post(
+    add_response = auth_client.post(
         f"/orders/{order_id}/items",
         json={
             "product_id": product_2,
@@ -678,7 +685,7 @@ def test_delete_order_item(client):
 
     assert add_response.status_code == 200
 
-    response = client.delete(
+    response = auth_client.delete(
         f"/orders/{order_id}/items/{product_2}"
     )
 
@@ -691,7 +698,7 @@ def test_delete_order_item(client):
     assert data["status"] == "pending"
     assert data["message"] == "Order item deleted successfully"
 
-    order_response = client.get(
+    order_response = auth_client.get(
         f"/orders/{order_id}"
     )
 
@@ -703,13 +710,13 @@ def test_delete_order_item(client):
     assert order_data["items"][0]["product_id"] == product_1
 
 
-def test_delete_order_item_not_found(client):
-    customer_id = create_customer(client)
+def test_delete_order_item_not_found(auth_client):
+    customer_id = create_customer(auth_client)
 
-    product_id = create_product(client)
+    product_id = create_product(auth_client)
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=1,
@@ -717,7 +724,7 @@ def test_delete_order_item_not_found(client):
 
     order_id = order["order_id"]
 
-    response = client.delete(
+    response = auth_client.delete(
         f"/orders/{order_id}/items/9999"
     )
 
@@ -727,8 +734,8 @@ def test_delete_order_item_not_found(client):
     }
 
 
-def test_delete_order_item_order_not_found(client):
-    response = client.delete(
+def test_delete_order_item_order_not_found(auth_client):
+    response = auth_client.delete(
         "/orders/9999/items/1"
     )
 
@@ -738,17 +745,17 @@ def test_delete_order_item_order_not_found(client):
     }
 
 
-def test_confirm_order_reduces_stock(client):
-    customer_id = create_customer(client)
+def test_confirm_order_reduces_stock(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=3,
@@ -757,7 +764,7 @@ def test_confirm_order_reduces_stock(client):
     order_id = order["order_id"]
 
     response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "confirmed",
     )
@@ -769,7 +776,7 @@ def test_confirm_order_reduces_stock(client):
     assert data["status"] == "confirmed"
     assert data["order_id"] == order_id
 
-    product_response = client.get(
+    product_response = auth_client.get(
         f"/products/{product_id}"
     )
 
@@ -780,17 +787,17 @@ def test_confirm_order_reduces_stock(client):
     assert product_data["stock"] == 7
 
 
-def test_confirm_order_insufficient_stock(client):
-    customer_id = create_customer(client)
+def test_confirm_order_insufficient_stock(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=2,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=5,
@@ -799,10 +806,11 @@ def test_confirm_order_insufficient_stock(client):
     order_id = order["order_id"]
 
     response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "confirmed",
     )
+
     assert response.status_code == 400
 
     assert response.json() == {
@@ -812,14 +820,14 @@ def test_confirm_order_insufficient_stock(client):
         )
     }
 
-    order_response = client.get(
+    order_response = auth_client.get(
         f"/orders/{order_id}"
     )
 
     assert order_response.status_code == 200
     assert order_response.json()["status"] == "pending"
 
-    product_response = client.get(
+    product_response = auth_client.get(
         f"/products/{product_id}"
     )
 
@@ -827,17 +835,17 @@ def test_confirm_order_insufficient_stock(client):
     assert product_response.json()["stock"] == 2
 
 
-def test_confirm_order_product_not_found(client, db):
-    customer_id = create_customer(client)
+def test_confirm_order_product_not_found(auth_client, db):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=2,
@@ -855,7 +863,7 @@ def test_confirm_order_product_not_found(client, db):
     db.commit()
 
     response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "confirmed",
     )
@@ -865,7 +873,7 @@ def test_confirm_order_product_not_found(client, db):
         "detail": f"Product {product_id} not found"
     }
 
-    order_response = client.get(
+    order_response = auth_client.get(
         f"/orders/{order_id}"
     )
 
@@ -873,17 +881,17 @@ def test_confirm_order_product_not_found(client, db):
     assert order_response.json()["status"] == "pending"
 
 
-def test_cancel_confirmed_order_product_not_found(client, db):
-    customer_id = create_customer(client)
+def test_cancel_confirmed_order_product_not_found(auth_client, db):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=2,
@@ -892,7 +900,7 @@ def test_cancel_confirmed_order_product_not_found(client, db):
     order_id = order["order_id"]
 
     confirm_response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "confirmed",
     )
@@ -909,7 +917,7 @@ def test_cancel_confirmed_order_product_not_found(client, db):
     db.commit()
 
     response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "cancelled",
     )
@@ -919,7 +927,7 @@ def test_cancel_confirmed_order_product_not_found(client, db):
         "detail": f"Product {product_id} not found"
     }
 
-    order_response = client.get(
+    order_response = auth_client.get(
         f"/orders/{order_id}"
     )
 
@@ -927,17 +935,17 @@ def test_cancel_confirmed_order_product_not_found(client, db):
     assert order_response.json()["status"] == "confirmed"
 
 
-def test_confirm_order_does_not_reduce_stock_twice(client):
-    customer_id = create_customer(client)
+def test_confirm_order_does_not_reduce_stock_twice(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=3,
@@ -946,21 +954,21 @@ def test_confirm_order_does_not_reduce_stock_twice(client):
     order_id = order["order_id"]
 
     first_response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "confirmed",
     )
 
     assert first_response.status_code == 200
 
-    product_response = client.get(
+    product_response = auth_client.get(
         f"/products/{product_id}"
     )
 
     assert product_response.json()["stock"] == 7
 
     second_response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "confirmed",
     )
@@ -971,24 +979,24 @@ def test_confirm_order_does_not_reduce_stock_twice(client):
         "detail": "Order is already confirmed"
     }
 
-    product_response = client.get(
+    product_response = auth_client.get(
         f"/products/{product_id}"
     )
 
     assert product_response.json()["stock"] == 7
 
 
-def test_cancel_pending_order_does_not_change_stock(client):
-    customer_id = create_customer(client)
+def test_cancel_pending_order_does_not_change_stock(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=3,
@@ -997,7 +1005,7 @@ def test_cancel_pending_order_does_not_change_stock(client):
     order_id = order["order_id"]
 
     response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "cancelled",
     )
@@ -1005,24 +1013,24 @@ def test_cancel_pending_order_does_not_change_stock(client):
     assert response.status_code == 200
     assert response.json()["status"] == "cancelled"
 
-    product_response = client.get(
+    product_response = auth_client.get(
         f"/products/{product_id}"
     )
 
     assert product_response.json()["stock"] == 10
 
 
-def test_cancel_confirmed_order_restores_stock(client):
-    customer_id = create_customer(client)
+def test_cancel_confirmed_order_restores_stock(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=3,
@@ -1031,21 +1039,21 @@ def test_cancel_confirmed_order_restores_stock(client):
     order_id = order["order_id"]
 
     confirm_response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "confirmed",
     )
 
     assert confirm_response.status_code == 200
 
-    product_response = client.get(
+    product_response = auth_client.get(
         f"/products/{product_id}"
     )
 
     assert product_response.json()["stock"] == 7
 
     cancel_response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "cancelled",
     )
@@ -1053,20 +1061,20 @@ def test_cancel_confirmed_order_restores_stock(client):
     assert cancel_response.status_code == 200
     assert cancel_response.json()["status"] == "cancelled"
 
-    product_response = client.get(
+    product_response = auth_client.get(
         f"/products/{product_id}"
     )
 
     assert product_response.json()["stock"] == 10
 
 
-def test_invalid_order_status_transition(client):
-    customer_id = create_customer(client)
+def test_invalid_order_status_transition(auth_client):
+    customer_id = create_customer(auth_client)
 
-    product_id = create_product(client)
+    product_id = create_product(auth_client)
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=1,
@@ -1075,7 +1083,7 @@ def test_invalid_order_status_transition(client):
     order_id = order["order_id"]
 
     response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "shipped",
     )
@@ -1090,9 +1098,9 @@ def test_invalid_order_status_transition(client):
     }
 
 
-def test_order_status_not_found(client):
+def test_order_status_not_found(auth_client):
     response = update_order_status(
-        client,
+        auth_client,
         9999,
         "confirmed",
     )
@@ -1101,17 +1109,17 @@ def test_order_status_not_found(client):
     assert response.json()["detail"] == "Order not found"
 
 
-def test_order_status_full_valid_transition(client):
-    customer_id = create_customer(client)
+def test_order_status_full_valid_transition(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=2,
@@ -1128,7 +1136,7 @@ def test_order_status_full_valid_transition(client):
 
     for status in statuses:
         response = update_order_status(
-            client,
+            auth_client,
             order_id,
             status,
         )
@@ -1136,32 +1144,32 @@ def test_order_status_full_valid_transition(client):
         assert response.status_code == 200
         assert response.json()["status"] == status
 
-    product_response = client.get(
+    product_response = auth_client.get(
         f"/products/{product_id}"
     )
 
     assert product_response.json()["stock"] == 8
 
 
-def test_order_items_cannot_be_added_after_confirmation(client):
-    customer_id = create_customer(client)
+def test_order_items_cannot_be_added_after_confirmation(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_1 = create_product(
-        client,
+        auth_client,
         name="Laptop",
         price=1500,
         stock=10,
     )
 
     product_2 = create_product(
-        client,
+        auth_client,
         name="Mouse",
         price=50,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_1,
         quantity=1,
@@ -1170,14 +1178,14 @@ def test_order_items_cannot_be_added_after_confirmation(client):
     order_id = order["order_id"]
 
     confirm_response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "confirmed",
     )
 
     assert confirm_response.status_code == 200
 
-    response = client.post(
+    response = auth_client.post(
         f"/orders/{order_id}/items",
         json={
             "product_id": product_2,
@@ -1192,17 +1200,17 @@ def test_order_items_cannot_be_added_after_confirmation(client):
     }
 
 
-def test_order_items_cannot_be_updated_after_confirmation(client):
-    customer_id = create_customer(client)
+def test_order_items_cannot_be_updated_after_confirmation(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=2,
@@ -1211,14 +1219,14 @@ def test_order_items_cannot_be_updated_after_confirmation(client):
     order_id = order["order_id"]
 
     confirm_response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "confirmed",
     )
 
     assert confirm_response.status_code == 200
 
-    response = client.patch(
+    response = auth_client.patch(
         f"/orders/{order_id}/items/{product_id}",
         json={
             "quantity": 5,
@@ -1232,17 +1240,17 @@ def test_order_items_cannot_be_updated_after_confirmation(client):
     }
 
 
-def test_order_items_cannot_be_deleted_after_confirmation(client):
-    customer_id = create_customer(client)
+def test_order_items_cannot_be_deleted_after_confirmation(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         price=100,
         stock=10,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=2,
@@ -1251,14 +1259,14 @@ def test_order_items_cannot_be_deleted_after_confirmation(client):
     order_id = order["order_id"]
 
     confirm_response = update_order_status(
-        client,
+        auth_client,
         order_id,
         "confirmed",
     )
 
     assert confirm_response.status_code == 200
 
-    response = client.delete(
+    response = auth_client.delete(
         f"/orders/{order_id}/items/{product_id}"
     )
 
@@ -1269,8 +1277,8 @@ def test_order_items_cannot_be_deleted_after_confirmation(client):
     }
 
 
-def test_confirm_order_creates_sale_inventory_transaction(client):
-    customer_response = client.post(
+def test_confirm_order_creates_sale_inventory_transaction(auth_client):
+    customer_response = auth_client.post(
         "/customers/",
         json={
             "name": "Ali",
@@ -1281,7 +1289,7 @@ def test_confirm_order_creates_sale_inventory_transaction(client):
 
     customer_id = customer_response.json()["id"]
 
-    product_response = client.post(
+    product_response = auth_client.post(
         "/products/",
         json={
             "name": "Keyboard",
@@ -1292,7 +1300,7 @@ def test_confirm_order_creates_sale_inventory_transaction(client):
 
     product_id = product_response.json()["id"]
 
-    order_response = client.post(
+    order_response = auth_client.post(
         "/orders/",
         json={
             "customer_id": customer_id,
@@ -1309,7 +1317,7 @@ def test_confirm_order_creates_sale_inventory_transaction(client):
 
     order_id = order_response.json()["order_id"]
 
-    response = client.patch(
+    response = auth_client.patch(
         f"/orders/{order_id}/status",
         params={"new_status": "confirmed"},
     )
@@ -1317,13 +1325,13 @@ def test_confirm_order_creates_sale_inventory_transaction(client):
     assert response.status_code == 200
     assert response.json()["status"] == "confirmed"
 
-    product = client.get(
+    product = auth_client.get(
         f"/products/{product_id}"
     ).json()
 
     assert product["stock"] == 7
 
-    inventory_response = client.get(
+    inventory_response = auth_client.get(
         f"/products/{product_id}/inventory"
     )
 
@@ -1337,8 +1345,8 @@ def test_confirm_order_creates_sale_inventory_transaction(client):
     assert transactions[0]["reason"] == f"Order {order_id} confirmed"
 
 
-def test_cancel_confirmed_order_creates_cancel_transaction(client):
-    customer_response = client.post(
+def test_cancel_confirmed_order_creates_cancel_transaction(auth_client):
+    customer_response = auth_client.post(
         "/customers/",
         json={
             "name": "Reza",
@@ -1349,7 +1357,7 @@ def test_cancel_confirmed_order_creates_cancel_transaction(client):
 
     customer_id = customer_response.json()["id"]
 
-    product_response = client.post(
+    product_response = auth_client.post(
         "/products/",
         json={
             "name": "Mouse",
@@ -1360,7 +1368,7 @@ def test_cancel_confirmed_order_creates_cancel_transaction(client):
 
     product_id = product_response.json()["id"]
 
-    order_response = client.post(
+    order_response = auth_client.post(
         "/orders/",
         json={
             "customer_id": customer_id,
@@ -1375,14 +1383,14 @@ def test_cancel_confirmed_order_creates_cancel_transaction(client):
 
     order_id = order_response.json()["order_id"]
 
-    confirm_response = client.patch(
+    confirm_response = auth_client.patch(
         f"/orders/{order_id}/status",
         params={"new_status": "confirmed"},
     )
 
     assert confirm_response.status_code == 200
 
-    cancel_response = client.patch(
+    cancel_response = auth_client.patch(
         f"/orders/{order_id}/status",
         params={"new_status": "cancelled"},
     )
@@ -1390,13 +1398,13 @@ def test_cancel_confirmed_order_creates_cancel_transaction(client):
     assert cancel_response.status_code == 200
     assert cancel_response.json()["status"] == "cancelled"
 
-    product = client.get(
+    product = auth_client.get(
         f"/products/{product_id}"
     ).json()
 
     assert product["stock"] == 10
 
-    inventory_response = client.get(
+    inventory_response = auth_client.get(
         f"/products/{product_id}/inventory"
     )
 
@@ -1412,9 +1420,9 @@ def test_cancel_confirmed_order_creates_cancel_transaction(client):
 
 
 def test_confirm_order_with_insufficient_stock_creates_no_inventory_transaction(
-    client,
+    auth_client,
 ):
-    customer_response = client.post(
+    customer_response = auth_client.post(
         "/customers/",
         json={
             "name": "Hassan",
@@ -1425,7 +1433,7 @@ def test_confirm_order_with_insufficient_stock_creates_no_inventory_transaction(
 
     customer_id = customer_response.json()["id"]
 
-    product_response = client.post(
+    product_response = auth_client.post(
         "/products/",
         json={
             "name": "Monitor",
@@ -1436,7 +1444,7 @@ def test_confirm_order_with_insufficient_stock_creates_no_inventory_transaction(
 
     product_id = product_response.json()["id"]
 
-    order_response = client.post(
+    order_response = auth_client.post(
         "/orders/",
         json={
             "customer_id": customer_id,
@@ -1451,7 +1459,7 @@ def test_confirm_order_with_insufficient_stock_creates_no_inventory_transaction(
 
     order_id = order_response.json()["order_id"]
 
-    response = client.patch(
+    response = auth_client.patch(
         f"/orders/{order_id}/status",
         params={"new_status": "confirmed"},
     )
@@ -1459,13 +1467,13 @@ def test_confirm_order_with_insufficient_stock_creates_no_inventory_transaction(
     assert response.status_code == 400
     assert "Not enough stock" in response.json()["detail"]
 
-    product = client.get(
+    product = auth_client.get(
         f"/products/{product_id}"
     ).json()
 
     assert product["stock"] == 2
 
-    inventory_response = client.get(
+    inventory_response = auth_client.get(
         f"/products/{product_id}/inventory"
     )
 
@@ -1474,9 +1482,9 @@ def test_confirm_order_with_insufficient_stock_creates_no_inventory_transaction(
 
 
 def test_pending_order_cancellation_creates_no_inventory_transaction(
-    client,
+    auth_client,
 ):
-    customer_response = client.post(
+    customer_response = auth_client.post(
         "/customers/",
         json={
             "name": "Mehdi",
@@ -1487,7 +1495,7 @@ def test_pending_order_cancellation_creates_no_inventory_transaction(
 
     customer_id = customer_response.json()["id"]
 
-    product_response = client.post(
+    product_response = auth_client.post(
         "/products/",
         json={
             "name": "Headset",
@@ -1498,7 +1506,7 @@ def test_pending_order_cancellation_creates_no_inventory_transaction(
 
     product_id = product_response.json()["id"]
 
-    order_response = client.post(
+    order_response = auth_client.post(
         "/orders/",
         json={
             "customer_id": customer_id,
@@ -1513,7 +1521,7 @@ def test_pending_order_cancellation_creates_no_inventory_transaction(
 
     order_id = order_response.json()["order_id"]
 
-    response = client.patch(
+    response = auth_client.patch(
         f"/orders/{order_id}/status",
         params={"new_status": "cancelled"},
     )
@@ -1521,13 +1529,13 @@ def test_pending_order_cancellation_creates_no_inventory_transaction(
     assert response.status_code == 200
     assert response.json()["status"] == "cancelled"
 
-    product = client.get(
+    product = auth_client.get(
         f"/products/{product_id}"
     ).json()
 
     assert product["stock"] == 8
 
-    inventory_response = client.get(
+    inventory_response = auth_client.get(
         f"/products/{product_id}/inventory"
     )
 
@@ -1535,24 +1543,24 @@ def test_pending_order_cancellation_creates_no_inventory_transaction(
     assert inventory_response.json() == []
 
 
-def test_list_orders(client):
-    customer_id = create_customer(client)
+def test_list_orders(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         name="Laptop",
         price=1500,
         stock=10,
     )
 
     create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=2,
     )
 
-    response = client.get("/orders/")
+    response = auth_client.get("/orders/")
 
     assert response.status_code == 200
 
@@ -1579,11 +1587,11 @@ def test_list_orders(client):
     assert order["status"] == "pending"
 
 
-def test_list_orders_pagination(client):
-    customer_id = create_customer(client)
+def test_list_orders_pagination(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         name="Laptop",
         price=100,
         stock=100,
@@ -1591,13 +1599,13 @@ def test_list_orders_pagination(client):
 
     for _ in range(5):
         create_order(
-            client,
+            auth_client,
             customer_id,
             product_id,
             quantity=1,
         )
 
-    response = client.get(
+    response = auth_client.get(
         "/orders/",
         params={
             "page": 1,
@@ -1616,11 +1624,11 @@ def test_list_orders_pagination(client):
     assert len(data["items"]) == 2
 
 
-def test_list_orders_second_page(client):
-    customer_id = create_customer(client)
+def test_list_orders_second_page(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         name="Laptop",
         price=100,
         stock=100,
@@ -1628,13 +1636,13 @@ def test_list_orders_second_page(client):
 
     for _ in range(5):
         create_order(
-            client,
+            auth_client,
             customer_id,
             product_id,
             quantity=1,
         )
 
-    response = client.get(
+    response = auth_client.get(
         "/orders/",
         params={
             "page": 2,
@@ -1653,11 +1661,11 @@ def test_list_orders_second_page(client):
     assert len(data["items"]) == 2
 
 
-def test_list_orders_page_beyond_last_page(client):
-    customer_id = create_customer(client)
+def test_list_orders_page_beyond_last_page(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         name="Laptop",
         price=100,
         stock=100,
@@ -1665,13 +1673,13 @@ def test_list_orders_page_beyond_last_page(client):
 
     for _ in range(3):
         create_order(
-            client,
+            auth_client,
             customer_id,
             product_id,
             quantity=1,
         )
 
-    response = client.get(
+    response = auth_client.get(
         "/orders/",
         params={
             "page": 10,
@@ -1690,10 +1698,10 @@ def test_list_orders_page_beyond_last_page(client):
     assert data["items"] == []
 
 
-def test_list_orders_filter_by_customer_id(client):
-    customer_1 = create_customer(client)
+def test_list_orders_filter_by_customer_id(auth_client):
+    customer_1 = create_customer(auth_client)
 
-    customer_2_response = client.post(
+    customer_2_response = auth_client.post(
         "/customers/",
         json={
             "name": "Reza Ahmadi",
@@ -1707,27 +1715,27 @@ def test_list_orders_filter_by_customer_id(client):
     customer_2 = customer_2_response.json()["id"]
 
     product_id = create_product(
-        client,
+        auth_client,
         name="Laptop",
         price=100,
         stock=100,
     )
 
     create_order(
-        client,
+        auth_client,
         customer_1,
         product_id,
         quantity=1,
     )
 
     create_order(
-        client,
+        auth_client,
         customer_2,
         product_id,
         quantity=2,
     )
 
-    response = client.get(
+    response = auth_client.get(
         "/orders/",
         params={
             "customer_id": customer_2,
@@ -1744,39 +1752,39 @@ def test_list_orders_filter_by_customer_id(client):
     assert data["items"][0]["total_price"] == 200
 
 
-def test_list_orders_filter_by_status(client):
-    customer_id = create_customer(client)
+def test_list_orders_filter_by_status(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         name="Laptop",
         price=100,
         stock=100,
     )
 
     pending_order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=1,
     )
 
     confirmed_order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=2,
     )
 
     confirm_response = update_order_status(
-        client,
+        auth_client,
         confirmed_order["order_id"],
         "confirmed",
     )
 
     assert confirm_response.status_code == 200
 
-    response = client.get(
+    response = auth_client.get(
         "/orders/",
         params={
             "status": "confirmed",
@@ -1798,38 +1806,38 @@ def test_list_orders_filter_by_status(client):
     assert order["order_id"] != pending_order["order_id"]
 
 
-def test_list_orders_filter_by_product_name(client):
-    customer_id = create_customer(client)
+def test_list_orders_filter_by_product_name(auth_client):
+    customer_id = create_customer(auth_client)
 
     laptop_id = create_product(
-        client,
+        auth_client,
         name="Gaming Laptop",
         price=1500,
         stock=20,
     )
 
     mouse_id = create_product(
-        client,
+        auth_client,
         name="Wireless Mouse",
         price=50,
         stock=20,
     )
 
     laptop_order = create_order(
-        client,
+        auth_client,
         customer_id,
         laptop_id,
         quantity=1,
     )
 
     create_order(
-        client,
+        auth_client,
         customer_id,
         mouse_id,
         quantity=2,
     )
 
-    response = client.get(
+    response = auth_client.get(
         "/orders/",
         params={
             "product_name": "Laptop",
@@ -1849,24 +1857,24 @@ def test_list_orders_filter_by_product_name(client):
     assert order["total_price"] == 1500
 
 
-def test_list_orders_product_name_case_insensitive(client):
-    customer_id = create_customer(client)
+def test_list_orders_product_name_case_insensitive(auth_client):
+    customer_id = create_customer(auth_client)
 
     product_id = create_product(
-        client,
+        auth_client,
         name="Gaming Laptop",
         price=1500,
         stock=20,
     )
 
     order = create_order(
-        client,
+        auth_client,
         customer_id,
         product_id,
         quantity=1,
     )
 
-    response = client.get(
+    response = auth_client.get(
         "/orders/",
         params={
             "product_name": "lApToP",
@@ -1882,10 +1890,10 @@ def test_list_orders_product_name_case_insensitive(client):
     assert data["items"][0]["order_id"] == order["order_id"]
 
 
-def test_list_orders_combined_filters(client):
-    customer_1 = create_customer(client)
+def test_list_orders_combined_filters(auth_client):
+    customer_1 = create_customer(auth_client)
 
-    customer_2_response = client.post(
+    customer_2_response = auth_client.post(
         "/customers/",
         json={
             "name": "Reza Ahmadi",
@@ -1899,44 +1907,41 @@ def test_list_orders_combined_filters(client):
     customer_2 = customer_2_response.json()["id"]
 
     laptop_id = create_product(
-        client,
+        auth_client,
         name="Gaming Laptop",
         price=1500,
         stock=20,
     )
 
     mouse_id = create_product(
-        client,
+        auth_client,
         name="Wireless Mouse",
         price=50,
         stock=20,
     )
 
-    # Customer 1 + Laptop + pending
     create_order(
-        client,
+        auth_client,
         customer_1,
         laptop_id,
         quantity=1,
     )
 
-    # Customer 2 + Laptop + pending
     target_order = create_order(
-        client,
+        auth_client,
         customer_2,
         laptop_id,
         quantity=2,
     )
 
-    # Customer 2 + Mouse + pending
     create_order(
-        client,
+        auth_client,
         customer_2,
         mouse_id,
         quantity=1,
     )
 
-    response = client.get(
+    response = auth_client.get(
         "/orders/",
         params={
             "customer_id": customer_2,
@@ -1960,8 +1965,8 @@ def test_list_orders_combined_filters(client):
     assert order["total_price"] == 3000
 
 
-def test_list_orders_invalid_page(client):
-    response = client.get(
+def test_list_orders_invalid_page(auth_client):
+    response = auth_client.get(
         "/orders/",
         params={
             "page": 0,
@@ -1971,8 +1976,8 @@ def test_list_orders_invalid_page(client):
     assert response.status_code == 422
 
 
-def test_list_orders_invalid_limit_zero(client):
-    response = client.get(
+def test_list_orders_invalid_limit_zero(auth_client):
+    response = auth_client.get(
         "/orders/",
         params={
             "limit": 0,
@@ -1982,8 +1987,8 @@ def test_list_orders_invalid_limit_zero(client):
     assert response.status_code == 422
 
 
-def test_list_orders_invalid_limit_too_large(client):
-    response = client.get(
+def test_list_orders_invalid_limit_too_large(auth_client):
+    response = auth_client.get(
         "/orders/",
         params={
             "limit": 101,
@@ -1993,8 +1998,8 @@ def test_list_orders_invalid_limit_too_large(client):
     assert response.status_code == 422
 
 
-def test_list_orders_no_results(client):
-    response = client.get(
+def test_list_orders_no_results(auth_client):
+    response = auth_client.get(
         "/orders/",
         params={
             "product_name": "NonExistingProduct",
@@ -2010,3 +2015,79 @@ def test_list_orders_no_results(client):
     assert data["pages"] == 0
     assert data["page"] == 1
     assert data["limit"] == 10
+
+
+# ---------------------------------------------------------
+# Authentication tests
+# ---------------------------------------------------------
+
+
+def test_create_order_requires_authentication(client):
+    response = client.post(
+        "/orders/",
+        json={
+            "customer_id": 1,
+            "items": [
+                {
+                    "product_id": 1,
+                    "quantity": 1,
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_list_orders_requires_authentication(client):
+    response = client.get("/orders/")
+
+    assert response.status_code == 401
+
+
+def test_get_order_requires_authentication(client):
+    response = client.get("/orders/1")
+
+    assert response.status_code == 401
+
+
+def test_update_order_status_requires_authentication(client):
+    response = client.patch(
+        "/orders/1/status",
+        params={
+            "new_status": "confirmed",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_add_order_item_requires_authentication(client):
+    response = client.post(
+        "/orders/1/items",
+        json={
+            "product_id": 1,
+            "quantity": 1,
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_update_order_item_requires_authentication(client):
+    response = client.patch(
+        "/orders/1/items/1",
+        json={
+            "quantity": 2,
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_delete_order_item_requires_authentication(client):
+    response = client.delete(
+        "/orders/1/items/1"
+    )
+
+    assert response.status_code == 401

@@ -1,5 +1,39 @@
-def test_create_product(client):
-    response = client.post(
+def auth_post(client, auth_headers, url, **kwargs):
+    return client.post(
+        url,
+        headers=auth_headers,
+        **kwargs,
+    )
+
+
+def auth_get(client, auth_headers, url, **kwargs):
+    return client.get(
+        url,
+        headers=auth_headers,
+        **kwargs,
+    )
+
+
+def auth_put(client, auth_headers, url, **kwargs):
+    return client.put(
+        url,
+        headers=auth_headers,
+        **kwargs,
+    )
+
+
+def admin_delete(client, admin_headers, url, **kwargs):
+    return client.delete(
+        url,
+        headers=admin_headers,
+        **kwargs,
+    )
+
+
+def test_create_product(client, auth_headers):
+    response = auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Laptop",
@@ -19,8 +53,10 @@ def test_create_product(client):
     assert data["stock"] == 10
 
 
-def test_get_products(client):
-    create_response = client.post(
+def test_get_products(client, auth_headers):
+    create_response = auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Laptop",
@@ -31,7 +67,11 @@ def test_get_products(client):
 
     assert create_response.status_code == 200
 
-    response = client.get("/products")
+    response = auth_get(
+        client,
+        auth_headers,
+        "/products",
+    )
 
     assert response.status_code == 200
 
@@ -51,8 +91,10 @@ def test_get_products(client):
     assert product["stock"] == 10
 
 
-def test_get_product(client):
-    create_response = client.post(
+def test_get_product(client, auth_headers):
+    create_response = auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Laptop",
@@ -65,7 +107,11 @@ def test_get_product(client):
 
     product_id = create_response.json()["id"]
 
-    response = client.get(f"/products/{product_id}")
+    response = auth_get(
+        client,
+        auth_headers,
+        f"/products/{product_id}",
+    )
 
     assert response.status_code == 200
 
@@ -77,8 +123,12 @@ def test_get_product(client):
     assert data["stock"] == 10
 
 
-def test_get_product_not_found(client):
-    response = client.get("/products/9999")
+def test_get_product_not_found(client, auth_headers):
+    response = auth_get(
+        client,
+        auth_headers,
+        "/products/9999",
+    )
 
     assert response.status_code == 404
     assert response.json() == {
@@ -86,8 +136,10 @@ def test_get_product_not_found(client):
     }
 
 
-def test_update_product(client):
-    create_response = client.post(
+def test_update_product(client, auth_headers):
+    create_response = auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Laptop",
@@ -100,7 +152,9 @@ def test_update_product(client):
 
     product_id = create_response.json()["id"]
 
-    response = client.put(
+    response = auth_put(
+        client,
+        auth_headers,
         f"/products/{product_id}",
         json={
             "name": "Updated Laptop",
@@ -119,8 +173,10 @@ def test_update_product(client):
     assert data["stock"] == 15
 
 
-def test_update_product_not_found(client):
-    response = client.put(
+def test_update_product_not_found(client, auth_headers):
+    response = auth_put(
+        client,
+        auth_headers,
         "/products/9999",
         json={
             "name": "Updated Laptop",
@@ -135,8 +191,10 @@ def test_update_product_not_found(client):
     }
 
 
-def test_delete_product(client):
-    create_response = client.post(
+def test_delete_product(client, auth_headers, admin_headers):
+    create_response = auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Laptop",
@@ -149,14 +207,22 @@ def test_delete_product(client):
 
     product_id = create_response.json()["id"]
 
-    response = client.delete(f"/products/{product_id}")
+    response = admin_delete(
+        client,
+        admin_headers,
+        f"/products/{product_id}",
+    )
 
     assert response.status_code == 200
     assert response.json() == {
         "message": "Product deleted successfully"
     }
 
-    get_response = client.get(f"/products/{product_id}")
+    get_response = auth_get(
+        client,
+        auth_headers,
+        f"/products/{product_id}",
+    )
 
     assert get_response.status_code == 404
     assert get_response.json() == {
@@ -164,8 +230,12 @@ def test_delete_product(client):
     }
 
 
-def test_delete_product_not_found(client):
-    response = client.delete("/products/9999")
+def test_delete_product_not_found(client, admin_headers):
+    response = admin_delete(
+        client,
+        admin_headers,
+        "/products/9999",
+    )
 
     assert response.status_code == 404
     assert response.json() == {
@@ -173,8 +243,62 @@ def test_delete_product_not_found(client):
     }
 
 
-def test_search_products(client):
-    client.post(
+def test_delete_product_requires_admin(client, auth_headers):
+    create_response = auth_post(
+        client,
+        auth_headers,
+        "/products",
+        json={
+            "name": "Laptop",
+            "price": 1500,
+            "stock": 10,
+        },
+    )
+
+    assert create_response.status_code == 200
+
+    product_id = create_response.json()["id"]
+
+    response = client.delete(
+        f"/products/{product_id}",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "Admin access required"
+    }
+
+
+def test_create_product_requires_authentication(client):
+    response = client.post(
+        "/products",
+        json={
+            "name": "Laptop",
+            "price": 1500,
+            "stock": 10,
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_get_products_requires_authentication(client):
+    response = client.get("/products")
+
+    assert response.status_code == 401
+
+
+def test_delete_product_requires_authentication(client):
+    response = client.delete("/products/9999")
+
+    assert response.status_code == 401
+
+
+def test_search_products(client, auth_headers):
+    auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Gaming Laptop",
@@ -183,7 +307,9 @@ def test_search_products(client):
         },
     )
 
-    client.post(
+    auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Office Chair",
@@ -192,7 +318,11 @@ def test_search_products(client):
         },
     )
 
-    response = client.get("/products?search=laptop")
+    response = auth_get(
+        client,
+        auth_headers,
+        "/products?search=laptop",
+    )
 
     assert response.status_code == 200
 
@@ -212,8 +342,10 @@ def test_search_products(client):
     assert product["stock"] == 5
 
 
-def test_low_stock_products(client):
-    client.post(
+def test_low_stock_products(client, auth_headers):
+    auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Low Stock Product",
@@ -222,7 +354,9 @@ def test_low_stock_products(client):
         },
     )
 
-    client.post(
+    auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Normal Stock Product",
@@ -231,7 +365,11 @@ def test_low_stock_products(client):
         },
     )
 
-    response = client.get("/products/low-stock?threshold=5")
+    response = auth_get(
+        client,
+        auth_headers,
+        "/products/low-stock?threshold=5",
+    )
 
     assert response.status_code == 200
 
@@ -242,8 +380,10 @@ def test_low_stock_products(client):
     assert data[0]["stock"] == 3
 
 
-def test_create_product_invalid_price(client):
-    response = client.post(
+def test_create_product_invalid_price(client, auth_headers):
+    response = auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Laptop",
@@ -255,8 +395,10 @@ def test_create_product_invalid_price(client):
     assert response.status_code == 422
 
 
-def test_create_product_invalid_stock(client):
-    response = client.post(
+def test_create_product_invalid_stock(client, auth_headers):
+    response = auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Laptop",
@@ -268,8 +410,10 @@ def test_create_product_invalid_stock(client):
     assert response.status_code == 422
 
 
-def test_create_product_empty_name(client):
-    response = client.post(
+def test_create_product_empty_name(client, auth_headers):
+    response = auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "",
@@ -280,8 +424,11 @@ def test_create_product_empty_name(client):
 
     assert response.status_code == 422
 
-def test_list_products(client):
-    client.post(
+
+def test_list_products(client, auth_headers):
+    auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Laptop",
@@ -290,7 +437,11 @@ def test_list_products(client):
         },
     )
 
-    response = client.get("/products/")
+    response = auth_get(
+        client,
+        auth_headers,
+        "/products/",
+    )
 
     assert response.status_code == 200
 
@@ -310,9 +461,11 @@ def test_list_products(client):
     assert product["stock"] == 10
 
 
-def test_list_products_pagination(client):
+def test_list_products_pagination(client, auth_headers):
     for i in range(5):
-        client.post(
+        auth_post(
+            client,
+            auth_headers,
             "/products",
             json={
                 "name": f"Product {i}",
@@ -321,7 +474,9 @@ def test_list_products_pagination(client):
             },
         )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={
             "page": 1,
@@ -340,9 +495,11 @@ def test_list_products_pagination(client):
     assert len(data["items"]) == 2
 
 
-def test_list_products_second_page(client):
+def test_list_products_second_page(client, auth_headers):
     for i in range(5):
-        client.post(
+        auth_post(
+            client,
+            auth_headers,
             "/products",
             json={
                 "name": f"Product {i}",
@@ -351,7 +508,9 @@ def test_list_products_second_page(client):
             },
         )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={
             "page": 2,
@@ -370,9 +529,11 @@ def test_list_products_second_page(client):
     assert len(data["items"]) == 2
 
 
-def test_list_products_page_beyond_last_page(client):
+def test_list_products_page_beyond_last_page(client, auth_headers):
     for i in range(3):
-        client.post(
+        auth_post(
+            client,
+            auth_headers,
             "/products",
             json={
                 "name": f"Product {i}",
@@ -381,7 +542,9 @@ def test_list_products_page_beyond_last_page(client):
             },
         )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={
             "page": 10,
@@ -400,8 +563,10 @@ def test_list_products_page_beyond_last_page(client):
     assert data["items"] == []
 
 
-def test_list_products_filter_by_search(client):
-    client.post(
+def test_list_products_filter_by_search(client, auth_headers):
+    auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Gaming Laptop",
@@ -410,7 +575,9 @@ def test_list_products_filter_by_search(client):
         },
     )
 
-    client.post(
+    auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Office Chair",
@@ -419,7 +586,9 @@ def test_list_products_filter_by_search(client):
         },
     )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={"search": "Laptop"},
     )
@@ -433,8 +602,10 @@ def test_list_products_filter_by_search(client):
     assert data["items"][0]["name"] == "Gaming Laptop"
 
 
-def test_list_products_search_case_insensitive(client):
-    client.post(
+def test_list_products_search_case_insensitive(client, auth_headers):
+    auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Gaming Laptop",
@@ -443,7 +614,9 @@ def test_list_products_search_case_insensitive(client):
         },
     )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={"search": "lApToP"},
     )
@@ -457,11 +630,13 @@ def test_list_products_search_case_insensitive(client):
     assert data["items"][0]["name"] == "Gaming Laptop"
 
 
-def test_list_products_filter_by_min_price(client):
+def test_list_products_filter_by_min_price(client, auth_headers):
     prices = [100, 500, 1000]
 
     for i, price in enumerate(prices):
-        client.post(
+        auth_post(
+            client,
+            auth_headers,
             "/products",
             json={
                 "name": f"Product {i}",
@@ -470,7 +645,9 @@ def test_list_products_filter_by_min_price(client):
             },
         )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={"min_price": 500},
     )
@@ -485,11 +662,13 @@ def test_list_products_filter_by_min_price(client):
         assert product["price"] >= 500
 
 
-def test_list_products_filter_by_max_price(client):
+def test_list_products_filter_by_max_price(client, auth_headers):
     prices = [100, 500, 1000]
 
     for i, price in enumerate(prices):
-        client.post(
+        auth_post(
+            client,
+            auth_headers,
             "/products",
             json={
                 "name": f"Product {i}",
@@ -498,7 +677,9 @@ def test_list_products_filter_by_max_price(client):
             },
         )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={"max_price": 500},
     )
@@ -513,11 +694,13 @@ def test_list_products_filter_by_max_price(client):
         assert product["price"] <= 500
 
 
-def test_list_products_filter_by_price_range(client):
+def test_list_products_filter_by_price_range(client, auth_headers):
     prices = [100, 500, 1000, 1500]
 
     for i, price in enumerate(prices):
-        client.post(
+        auth_post(
+            client,
+            auth_headers,
             "/products",
             json={
                 "name": f"Product {i}",
@@ -526,7 +709,9 @@ def test_list_products_filter_by_price_range(client):
             },
         )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={
             "min_price": 500,
@@ -544,8 +729,10 @@ def test_list_products_filter_by_price_range(client):
         assert 500 <= product["price"] <= 1000
 
 
-def test_list_products_invalid_price_range(client):
-    response = client.get(
+def test_list_products_invalid_price_range(client, auth_headers):
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={
             "min_price": 1000,
@@ -559,11 +746,13 @@ def test_list_products_invalid_price_range(client):
     )
 
 
-def test_list_products_filter_by_min_stock(client):
+def test_list_products_filter_by_min_stock(client, auth_headers):
     stocks = [0, 5, 10]
 
     for i, stock in enumerate(stocks):
-        client.post(
+        auth_post(
+            client,
+            auth_headers,
             "/products",
             json={
                 "name": f"Product {i}",
@@ -572,7 +761,9 @@ def test_list_products_filter_by_min_stock(client):
             },
         )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={"min_stock": 5},
     )
@@ -587,11 +778,13 @@ def test_list_products_filter_by_min_stock(client):
         assert product["stock"] >= 5
 
 
-def test_list_products_filter_by_max_stock(client):
+def test_list_products_filter_by_max_stock(client, auth_headers):
     stocks = [0, 5, 10]
 
     for i, stock in enumerate(stocks):
-        client.post(
+        auth_post(
+            client,
+            auth_headers,
             "/products",
             json={
                 "name": f"Product {i}",
@@ -600,7 +793,9 @@ def test_list_products_filter_by_max_stock(client):
             },
         )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={"max_stock": 5},
     )
@@ -615,11 +810,13 @@ def test_list_products_filter_by_max_stock(client):
         assert product["stock"] <= 5
 
 
-def test_list_products_filter_by_stock_range(client):
+def test_list_products_filter_by_stock_range(client, auth_headers):
     stocks = [0, 5, 10, 15]
 
     for i, stock in enumerate(stocks):
-        client.post(
+        auth_post(
+            client,
+            auth_headers,
             "/products",
             json={
                 "name": f"Product {i}",
@@ -628,7 +825,9 @@ def test_list_products_filter_by_stock_range(client):
             },
         )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={
             "min_stock": 5,
@@ -646,8 +845,10 @@ def test_list_products_filter_by_stock_range(client):
         assert 5 <= product["stock"] <= 10
 
 
-def test_list_products_invalid_stock_range(client):
-    response = client.get(
+def test_list_products_invalid_stock_range(client, auth_headers):
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={
             "min_stock": 10,
@@ -661,7 +862,7 @@ def test_list_products_invalid_stock_range(client):
     )
 
 
-def test_list_products_combined_filters(client):
+def test_list_products_combined_filters(client, auth_headers):
     products = [
         {
             "name": "Gaming Laptop",
@@ -686,9 +887,16 @@ def test_list_products_combined_filters(client):
     ]
 
     for product in products:
-        client.post("/products", json=product)
+        auth_post(
+            client,
+            auth_headers,
+            "/products",
+            json=product,
+        )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={
             "search": "Laptop",
@@ -713,8 +921,10 @@ def test_list_products_combined_filters(client):
     assert product["stock"] == 5
 
 
-def test_list_products_no_results(client):
-    client.post(
+def test_list_products_no_results(client, auth_headers):
+    auth_post(
+        client,
+        auth_headers,
         "/products",
         json={
             "name": "Laptop",
@@ -723,7 +933,9 @@ def test_list_products_no_results(client):
         },
     )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={"search": "NonExistingProduct"},
     )
@@ -739,8 +951,10 @@ def test_list_products_no_results(client):
     assert data["limit"] == 10
 
 
-def test_list_products_invalid_page(client):
-    response = client.get(
+def test_list_products_invalid_page(client, auth_headers):
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={"page": 0},
     )
@@ -748,8 +962,10 @@ def test_list_products_invalid_page(client):
     assert response.status_code == 422
 
 
-def test_list_products_invalid_limit_zero(client):
-    response = client.get(
+def test_list_products_invalid_limit_zero(client, auth_headers):
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={"limit": 0},
     )
@@ -757,8 +973,10 @@ def test_list_products_invalid_limit_zero(client):
     assert response.status_code == 422
 
 
-def test_list_products_invalid_limit_too_large(client):
-    response = client.get(
+def test_list_products_invalid_limit_too_large(client, auth_headers):
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={"limit": 101},
     )
@@ -766,11 +984,13 @@ def test_list_products_invalid_limit_too_large(client):
     assert response.status_code == 422
 
 
-def test_list_products_sort_by_price_asc(client):
+def test_list_products_sort_by_price_asc(client, auth_headers):
     prices = [1000, 100, 500]
 
     for i, price in enumerate(prices):
-        client.post(
+        auth_post(
+            client,
+            auth_headers,
             "/products",
             json={
                 "name": f"Product {i}",
@@ -779,7 +999,9 @@ def test_list_products_sort_by_price_asc(client):
             },
         )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={
             "sort_by": "price",
@@ -798,11 +1020,13 @@ def test_list_products_sort_by_price_asc(client):
     ]
 
 
-def test_list_products_sort_by_price_desc(client):
+def test_list_products_sort_by_price_desc(client, auth_headers):
     prices = [1000, 100, 500]
 
     for i, price in enumerate(prices):
-        client.post(
+        auth_post(
+            client,
+            auth_headers,
             "/products",
             json={
                 "name": f"Product {i}",
@@ -811,7 +1035,9 @@ def test_list_products_sort_by_price_desc(client):
             },
         )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={
             "sort_by": "price",
@@ -830,11 +1056,13 @@ def test_list_products_sort_by_price_desc(client):
     ]
 
 
-def test_list_products_sort_by_stock(client):
+def test_list_products_sort_by_stock(client, auth_headers):
     stocks = [20, 5, 10]
 
     for i, stock in enumerate(stocks):
-        client.post(
+        auth_post(
+            client,
+            auth_headers,
             "/products",
             json={
                 "name": f"Product {i}",
@@ -843,7 +1071,9 @@ def test_list_products_sort_by_stock(client):
             },
         )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={
             "sort_by": "stock",
@@ -862,11 +1092,13 @@ def test_list_products_sort_by_stock(client):
     ]
 
 
-def test_list_products_sort_by_name(client):
+def test_list_products_sort_by_name(client, auth_headers):
     names = ["Mouse", "Laptop", "Keyboard"]
 
     for name in names:
-        client.post(
+        auth_post(
+            client,
+            auth_headers,
             "/products",
             json={
                 "name": name,
@@ -875,7 +1107,9 @@ def test_list_products_sort_by_name(client):
             },
         )
 
-    response = client.get(
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={
             "sort_by": "name",
@@ -894,8 +1128,10 @@ def test_list_products_sort_by_name(client):
     ]
 
 
-def test_list_products_invalid_sort_by(client):
-    response = client.get(
+def test_list_products_invalid_sort_by(client, auth_headers):
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={"sort_by": "invalid"},
     )
@@ -906,8 +1142,10 @@ def test_list_products_invalid_sort_by(client):
     )
 
 
-def test_list_products_invalid_sort_order(client):
-    response = client.get(
+def test_list_products_invalid_sort_order(client, auth_headers):
+    response = auth_get(
+        client,
+        auth_headers,
         "/products/",
         params={"sort_order": "invalid"},
     )

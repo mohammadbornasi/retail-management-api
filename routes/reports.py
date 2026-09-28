@@ -5,13 +5,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Customer, Order, OrderItem, Product
+from models import Customer, Order, OrderItem, Product, User
 from schemas import (
     SalesReportResponse,
     TopSellingProductsResponse,
     TopCustomersResponse,
     InventorySummaryResponse,
 )
+from security import get_current_user
 
 
 router = APIRouter(
@@ -33,6 +34,7 @@ def get_sales_summary(
     from_date: date | None = None,
     to_date: date | None = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     query = db.query(Order).filter(
         Order.status.in_(SALES_STATUSES)
@@ -105,6 +107,7 @@ def get_sales_report(
     page: int = Query(1, ge=1),
     limit: int = Query(30, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     if from_date is None:
         from_date = date.today()
@@ -208,6 +211,7 @@ def get_top_selling_products(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     query = (
         db.query(
@@ -308,6 +312,7 @@ def get_top_customers(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     query = (
         db.query(
@@ -404,6 +409,7 @@ def get_inventory_summary(
         ge=0,
     ),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     total_products = (
         db.query(func.count(Product.id))

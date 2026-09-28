@@ -1,5 +1,14 @@
-def test_add_inventory(client):
-    product_response = client.post(
+import pytest
+
+
+@pytest.fixture
+def auth_client(client, auth_headers):
+    client.headers.update(auth_headers)
+    return client
+
+
+def test_add_inventory(auth_client):
+    product_response = auth_client.post(
         "/products/",
         json={
             "name": "Keyboard",
@@ -8,9 +17,11 @@ def test_add_inventory(client):
         },
     )
 
+    assert product_response.status_code == 200
+
     product_id = product_response.json()["id"]
 
-    response = client.post(
+    response = auth_client.post(
         f"/products/{product_id}/inventory",
         json={
             "quantity": 5,
@@ -28,15 +39,15 @@ def test_add_inventory(client):
     assert data["transaction_type"] == "purchase"
     assert data["reason"] == "New stock"
 
-    product = client.get(
+    product = auth_client.get(
         f"/products/{product_id}"
     ).json()
 
     assert product["stock"] == 15
 
 
-def test_remove_inventory(client):
-    product_response = client.post(
+def test_remove_inventory(auth_client):
+    product_response = auth_client.post(
         "/products/",
         json={
             "name": "Mouse",
@@ -45,9 +56,11 @@ def test_remove_inventory(client):
         },
     )
 
+    assert product_response.status_code == 200
+
     product_id = product_response.json()["id"]
 
-    response = client.post(
+    response = auth_client.post(
         f"/products/{product_id}/inventory",
         json={
             "quantity": -3,
@@ -63,15 +76,15 @@ def test_remove_inventory(client):
     assert data["quantity"] == -3
     assert data["transaction_type"] == "adjustment"
 
-    product = client.get(
+    product = auth_client.get(
         f"/products/{product_id}"
     ).json()
 
     assert product["stock"] == 7
 
 
-def test_inventory_cannot_exceed_stock(client):
-    product_response = client.post(
+def test_inventory_cannot_exceed_stock(auth_client):
+    product_response = auth_client.post(
         "/products/",
         json={
             "name": "Monitor",
@@ -80,9 +93,11 @@ def test_inventory_cannot_exceed_stock(client):
         },
     )
 
+    assert product_response.status_code == 200
+
     product_id = product_response.json()["id"]
 
-    response = client.post(
+    response = auth_client.post(
         f"/products/{product_id}/inventory",
         json={
             "quantity": -6,
@@ -93,15 +108,15 @@ def test_inventory_cannot_exceed_stock(client):
     assert response.status_code == 400
     assert response.json()["detail"] == "Insufficient stock"
 
-    product = client.get(
+    product = auth_client.get(
         f"/products/{product_id}"
     ).json()
 
     assert product["stock"] == 5
 
 
-def test_inventory_product_not_found(client):
-    response = client.post(
+def test_inventory_product_not_found(auth_client):
+    response = auth_client.post(
         "/products/9999/inventory",
         json={
             "quantity": 5,
@@ -113,8 +128,8 @@ def test_inventory_product_not_found(client):
     assert response.json()["detail"] == "Product not found"
 
 
-def test_inventory_quantity_cannot_be_zero(client):
-    product_response = client.post(
+def test_inventory_quantity_cannot_be_zero(auth_client):
+    product_response = auth_client.post(
         "/products/",
         json={
             "name": "Headset",
@@ -123,9 +138,11 @@ def test_inventory_quantity_cannot_be_zero(client):
         },
     )
 
+    assert product_response.status_code == 200
+
     product_id = product_response.json()["id"]
 
-    response = client.post(
+    response = auth_client.post(
         f"/products/{product_id}/inventory",
         json={
             "quantity": 0,
@@ -136,8 +153,8 @@ def test_inventory_quantity_cannot_be_zero(client):
     assert response.status_code == 422
 
 
-def test_get_inventory_history(client):
-    product_response = client.post(
+def test_get_inventory_history(auth_client):
+    product_response = auth_client.post(
         "/products/",
         json={
             "name": "Webcam",
@@ -146,9 +163,11 @@ def test_get_inventory_history(client):
         },
     )
 
+    assert product_response.status_code == 200
+
     product_id = product_response.json()["id"]
 
-    client.post(
+    auth_client.post(
         f"/products/{product_id}/inventory",
         json={
             "quantity": 5,
@@ -157,7 +176,7 @@ def test_get_inventory_history(client):
         },
     )
 
-    client.post(
+    auth_client.post(
         f"/products/{product_id}/inventory",
         json={
             "quantity": -2,
@@ -166,7 +185,7 @@ def test_get_inventory_history(client):
         },
     )
 
-    response = client.get(
+    response = auth_client.get(
         f"/products/{product_id}/inventory"
     )
 

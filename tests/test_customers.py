@@ -1,5 +1,79 @@
-def test_create_customer(client):
+import pytest
+
+
+@pytest.fixture
+def auth_client(client, auth_headers):
+    client.headers.update(auth_headers)
+    return client
+
+
+# =========================
+# Authentication / Authorization
+# =========================
+
+
+def test_create_customer_requires_authentication(client):
     response = client.post(
+        "/customers",
+        json={
+            "name": "Ali Ahmadi",
+            "email": "ali@example.com",
+            "phone": "09123456789",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_get_customers_requires_authentication(client):
+    response = client.get("/customers")
+
+    assert response.status_code == 401
+
+
+def test_get_customer_requires_authentication(client):
+    response = client.get("/customers/1")
+
+    assert response.status_code == 401
+
+
+def test_update_customer_requires_authentication(client):
+    response = client.put(
+        "/customers/1",
+        json={
+            "name": "Ali Updated",
+            "email": "ali.updated@example.com",
+            "phone": "09876543210",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_delete_customer_requires_authentication(client):
+    response = client.delete("/customers/1")
+
+    assert response.status_code == 401
+
+
+def test_delete_customer_requires_admin(client, auth_headers):
+    client.headers.update(auth_headers)
+
+    response = client.delete("/customers/1")
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "Admin access required"
+    }
+
+
+# =========================
+# Create
+# =========================
+
+
+def test_create_customer(auth_client):
+    response = auth_client.post(
         "/customers",
         json={
             "name": "Ali Ahmadi",
@@ -19,8 +93,42 @@ def test_create_customer(client):
     assert data["phone"] == "09123456789"
 
 
-def test_get_customers(client):
-    create_response = client.post(
+def test_create_customer_duplicate_email(auth_client):
+    customer = {
+        "name": "Ali Ahmadi",
+        "email": "ali@example.com",
+        "phone": "09123456789",
+    }
+
+    first_response = auth_client.post(
+        "/customers",
+        json=customer,
+    )
+
+    assert first_response.status_code == 200
+
+    second_response = auth_client.post(
+        "/customers",
+        json={
+            "name": "Reza Ahmadi",
+            "email": "ali@example.com",
+            "phone": "09123456788",
+        },
+    )
+
+    assert second_response.status_code == 400
+    assert second_response.json() == {
+        "detail": "A customer with this email already exists"
+    }
+
+
+# =========================
+# Get
+# =========================
+
+
+def test_get_customers(auth_client):
+    create_response = auth_client.post(
         "/customers",
         json={
             "name": "Ali Ahmadi",
@@ -31,7 +139,7 @@ def test_get_customers(client):
 
     assert create_response.status_code == 200
 
-    response = client.get("/customers")
+    response = auth_client.get("/customers")
 
     assert response.status_code == 200
 
@@ -51,37 +159,8 @@ def test_get_customers(client):
     assert customer["phone"] == "09123456789"
 
 
-def test_create_customer_duplicate_email(client):
-    customer = {
-        "name": "Ali Ahmadi",
-        "email": "ali@example.com",
-        "phone": "09123456789",
-    }
-
-    first_response = client.post(
-        "/customers",
-        json=customer,
-    )
-
-    assert first_response.status_code == 200
-
-    second_response = client.post(
-        "/customers",
-        json={
-            "name": "Reza Ahmadi",
-            "email": "ali@example.com",
-            "phone": "09123456788",
-        },
-    )
-
-    assert second_response.status_code == 400
-    assert second_response.json() == {
-        "detail": "A customer with this email already exists"
-    }
-
-
-def test_get_customer(client):
-    create_response = client.post(
+def test_get_customer(auth_client):
+    create_response = auth_client.post(
         "/customers",
         json={
             "name": "Ali Ahmadi",
@@ -94,7 +173,7 @@ def test_get_customer(client):
 
     customer_id = create_response.json()["id"]
 
-    response = client.get(f"/customers/{customer_id}")
+    response = auth_client.get(f"/customers/{customer_id}")
 
     assert response.status_code == 200
 
@@ -106,8 +185,8 @@ def test_get_customer(client):
     assert data["phone"] == "09123456789"
 
 
-def test_get_customer_not_found(client):
-    response = client.get("/customers/9999")
+def test_get_customer_not_found(auth_client):
+    response = auth_client.get("/customers/9999")
 
     assert response.status_code == 404
     assert response.json() == {
@@ -115,8 +194,13 @@ def test_get_customer_not_found(client):
     }
 
 
-def test_update_customer(client):
-    create_response = client.post(
+# =========================
+# Update
+# =========================
+
+
+def test_update_customer(auth_client):
+    create_response = auth_client.post(
         "/customers",
         json={
             "name": "Ali Ahmadi",
@@ -129,7 +213,7 @@ def test_update_customer(client):
 
     customer_id = create_response.json()["id"]
 
-    response = client.put(
+    response = auth_client.put(
         f"/customers/{customer_id}",
         json={
             "name": "Ali Updated",
@@ -148,8 +232,8 @@ def test_update_customer(client):
     assert data["phone"] == "09876543210"
 
 
-def test_update_customer_not_found(client):
-    response = client.put(
+def test_update_customer_not_found(auth_client):
+    response = auth_client.put(
         "/customers/9999",
         json={
             "name": "Ali Updated",
@@ -164,8 +248,8 @@ def test_update_customer_not_found(client):
     }
 
 
-def test_update_customer_duplicate_email(client):
-    first_customer = client.post(
+def test_update_customer_duplicate_email(auth_client):
+    first_customer = auth_client.post(
         "/customers",
         json={
             "name": "Ali Ahmadi",
@@ -174,7 +258,7 @@ def test_update_customer_duplicate_email(client):
         },
     )
 
-    second_customer = client.post(
+    second_customer = auth_client.post(
         "/customers",
         json={
             "name": "Reza Ahmadi",
@@ -188,7 +272,7 @@ def test_update_customer_duplicate_email(client):
 
     second_customer_id = second_customer.json()["id"]
 
-    response = client.put(
+    response = auth_client.put(
         f"/customers/{second_customer_id}",
         json={
             "name": "Reza Updated",
@@ -203,8 +287,13 @@ def test_update_customer_duplicate_email(client):
     }
 
 
-def test_delete_customer(client):
-    create_response = client.post(
+# =========================
+# Delete
+# =========================
+
+
+def test_delete_customer(auth_client, admin_headers):
+    create_response = auth_client.post(
         "/customers",
         json={
             "name": "Ali Ahmadi",
@@ -217,14 +306,17 @@ def test_delete_customer(client):
 
     customer_id = create_response.json()["id"]
 
-    response = client.delete(f"/customers/{customer_id}")
+    response = auth_client.delete(
+        f"/customers/{customer_id}",
+        headers=admin_headers,
+    )
 
     assert response.status_code == 200
     assert response.json() == {
         "message": "Customer deleted successfully"
     }
 
-    get_response = client.get(f"/customers/{customer_id}")
+    get_response = auth_client.get(f"/customers/{customer_id}")
 
     assert get_response.status_code == 404
     assert get_response.json() == {
@@ -232,8 +324,11 @@ def test_delete_customer(client):
     }
 
 
-def test_delete_customer_not_found(client):
-    response = client.delete("/customers/9999")
+def test_delete_customer_not_found(auth_client, admin_headers):
+    response = auth_client.delete(
+        "/customers/9999",
+        headers=admin_headers,
+    )
 
     assert response.status_code == 404
     assert response.json() == {
@@ -241,9 +336,14 @@ def test_delete_customer_not_found(client):
     }
 
 
-def test_list_customers_pagination(client):
+# =========================
+# Pagination
+# =========================
+
+
+def test_list_customers_pagination(auth_client):
     for i in range(15):
-        response = client.post(
+        response = auth_client.post(
             "/customers/",
             json={
                 "name": f"Customer {i}",
@@ -253,7 +353,7 @@ def test_list_customers_pagination(client):
         )
         assert response.status_code == 200
 
-    response = client.get("/customers/?page=1&limit=10")
+    response = auth_client.get("/customers/?page=1&limit=10")
 
     assert response.status_code == 200
 
@@ -266,9 +366,9 @@ def test_list_customers_pagination(client):
     assert len(data["items"]) == 10
 
 
-def test_list_customers_second_page(client):
+def test_list_customers_second_page(auth_client):
     for i in range(15):
-        response = client.post(
+        response = auth_client.post(
             "/customers/",
             json={
                 "name": f"Customer {i}",
@@ -278,7 +378,7 @@ def test_list_customers_second_page(client):
         )
         assert response.status_code == 200
 
-    response = client.get("/customers/?page=2&limit=10")
+    response = auth_client.get("/customers/?page=2&limit=10")
 
     assert response.status_code == 200
 
@@ -291,9 +391,9 @@ def test_list_customers_second_page(client):
     assert len(data["items"]) == 5
 
 
-def test_list_customers_page_beyond_last_page(client):
+def test_list_customers_page_beyond_last_page(auth_client):
     for i in range(5):
-        response = client.post(
+        response = auth_client.post(
             "/customers/",
             json={
                 "name": f"Customer {i}",
@@ -303,7 +403,7 @@ def test_list_customers_page_beyond_last_page(client):
         )
         assert response.status_code == 200
 
-    response = client.get("/customers/?page=3&limit=10")
+    response = auth_client.get("/customers/?page=3&limit=10")
 
     assert response.status_code == 200
 
@@ -316,7 +416,12 @@ def test_list_customers_page_beyond_last_page(client):
     assert data["items"] == []
 
 
-def test_list_customers_search_by_name(client):
+# =========================
+# Search
+# =========================
+
+
+def test_list_customers_search_by_name(auth_client):
     customers = [
         {
             "name": "Ali Ahmadi",
@@ -331,10 +436,10 @@ def test_list_customers_search_by_name(client):
     ]
 
     for customer in customers:
-        response = client.post("/customers/", json=customer)
+        response = auth_client.post("/customers/", json=customer)
         assert response.status_code == 200
 
-    response = client.get("/customers/?search=Ali")
+    response = auth_client.get("/customers/?search=Ali")
 
     assert response.status_code == 200
 
@@ -345,7 +450,7 @@ def test_list_customers_search_by_name(client):
     assert data["items"][0]["name"] == "Ali Ahmadi"
 
 
-def test_list_customers_search_by_email(client):
+def test_list_customers_search_by_email(auth_client):
     customers = [
         {
             "name": "Ali Ahmadi",
@@ -360,10 +465,10 @@ def test_list_customers_search_by_email(client):
     ]
 
     for customer in customers:
-        response = client.post("/customers/", json=customer)
+        response = auth_client.post("/customers/", json=customer)
         assert response.status_code == 200
 
-    response = client.get("/customers/?search=reza@example.com")
+    response = auth_client.get("/customers/?search=reza@example.com")
 
     assert response.status_code == 200
 
@@ -374,7 +479,7 @@ def test_list_customers_search_by_email(client):
     assert data["items"][0]["email"] == "reza@example.com"
 
 
-def test_list_customers_search_by_phone(client):
+def test_list_customers_search_by_phone(auth_client):
     customers = [
         {
             "name": "Ali Ahmadi",
@@ -389,10 +494,10 @@ def test_list_customers_search_by_phone(client):
     ]
 
     for customer in customers:
-        response = client.post("/customers/", json=customer)
+        response = auth_client.post("/customers/", json=customer)
         assert response.status_code == 200
 
-    response = client.get("/customers/?search=09122222222")
+    response = auth_client.get("/customers/?search=09122222222")
 
     assert response.status_code == 200
 
@@ -403,8 +508,8 @@ def test_list_customers_search_by_phone(client):
     assert data["items"][0]["phone"] == "09122222222"
 
 
-def test_list_customers_search_case_insensitive(client):
-    response = client.post(
+def test_list_customers_search_case_insensitive(auth_client):
+    response = auth_client.post(
         "/customers/",
         json={
             "name": "Ali Ahmadi",
@@ -415,7 +520,7 @@ def test_list_customers_search_case_insensitive(client):
 
     assert response.status_code == 200
 
-    response = client.get("/customers/?search=ALI")
+    response = auth_client.get("/customers/?search=ALI")
 
     assert response.status_code == 200
 
@@ -425,8 +530,8 @@ def test_list_customers_search_case_insensitive(client):
     assert data["items"][0]["name"] == "Ali Ahmadi"
 
 
-def test_list_customers_search_no_results(client):
-    response = client.post(
+def test_list_customers_search_no_results(auth_client):
+    response = auth_client.post(
         "/customers/",
         json={
             "name": "Ali Ahmadi",
@@ -437,7 +542,7 @@ def test_list_customers_search_no_results(client):
 
     assert response.status_code == 200
 
-    response = client.get("/customers/?search=NotFound")
+    response = auth_client.get("/customers/?search=NotFound")
 
     assert response.status_code == 200
 
@@ -448,9 +553,9 @@ def test_list_customers_search_no_results(client):
     assert data["pages"] == 0
 
 
-def test_list_customers_combined_search_and_pagination(client):
+def test_list_customers_combined_search_and_pagination(auth_client):
     for i in range(15):
-        response = client.post(
+        response = auth_client.post(
             "/customers/",
             json={
                 "name": f"Ali Customer {i}",
@@ -460,7 +565,7 @@ def test_list_customers_combined_search_and_pagination(client):
         )
         assert response.status_code == 200
 
-    response = client.get(
+    response = auth_client.get(
         "/customers/?search=Ali&page=2&limit=10"
     )
 
@@ -475,9 +580,14 @@ def test_list_customers_combined_search_and_pagination(client):
     assert len(data["items"]) == 5
 
 
-def test_list_customers_sort_by_id_asc(client):
+# =========================
+# Sorting
+# =========================
+
+
+def test_list_customers_sort_by_id_asc(auth_client):
     for i in range(3):
-        response = client.post(
+        response = auth_client.post(
             "/customers/",
             json={
                 "name": f"Customer {i}",
@@ -487,7 +597,7 @@ def test_list_customers_sort_by_id_asc(client):
         )
         assert response.status_code == 200
 
-    response = client.get(
+    response = auth_client.get(
         "/customers/?sort_by=id&sort_order=asc"
     )
 
@@ -500,11 +610,11 @@ def test_list_customers_sort_by_id_asc(client):
     assert ids == sorted(ids)
 
 
-def test_list_customers_sort_by_name_asc(client):
+def test_list_customers_sort_by_name_asc(auth_client):
     names = ["Zahra", "Ali", "Reza"]
 
     for i, name in enumerate(names):
-        response = client.post(
+        response = auth_client.post(
             "/customers/",
             json={
                 "name": name,
@@ -514,7 +624,7 @@ def test_list_customers_sort_by_name_asc(client):
         )
         assert response.status_code == 200
 
-    response = client.get(
+    response = auth_client.get(
         "/customers/?sort_by=name&sort_order=asc"
     )
 
@@ -527,11 +637,11 @@ def test_list_customers_sort_by_name_asc(client):
     assert names == ["Ali", "Reza", "Zahra"]
 
 
-def test_list_customers_sort_by_name_desc(client):
+def test_list_customers_sort_by_name_desc(auth_client):
     names = ["Zahra", "Ali", "Reza"]
 
     for i, name in enumerate(names):
-        response = client.post(
+        response = auth_client.post(
             "/customers/",
             json={
                 "name": name,
@@ -541,7 +651,7 @@ def test_list_customers_sort_by_name_desc(client):
         )
         assert response.status_code == 200
 
-    response = client.get(
+    response = auth_client.get(
         "/customers/?sort_by=name&sort_order=desc"
     )
 
@@ -554,7 +664,7 @@ def test_list_customers_sort_by_name_desc(client):
     assert names == ["Zahra", "Reza", "Ali"]
 
 
-def test_list_customers_sort_by_email(client):
+def test_list_customers_sort_by_email(auth_client):
     emails = [
         "z@example.com",
         "a@example.com",
@@ -562,7 +672,7 @@ def test_list_customers_sort_by_email(client):
     ]
 
     for i, email in enumerate(emails):
-        response = client.post(
+        response = auth_client.post(
             "/customers/",
             json={
                 "name": f"Customer {i}",
@@ -572,7 +682,7 @@ def test_list_customers_sort_by_email(client):
         )
         assert response.status_code == 200
 
-    response = client.get(
+    response = auth_client.get(
         "/customers/?sort_by=email&sort_order=asc"
     )
 
@@ -589,7 +699,7 @@ def test_list_customers_sort_by_email(client):
     ]
 
 
-def test_list_customers_sort_by_phone(client):
+def test_list_customers_sort_by_phone(auth_client):
     phones = [
         "09123333333",
         "09121111111",
@@ -597,7 +707,7 @@ def test_list_customers_sort_by_phone(client):
     ]
 
     for i, phone in enumerate(phones):
-        response = client.post(
+        response = auth_client.post(
             "/customers/",
             json={
                 "name": f"Customer {i}",
@@ -607,7 +717,7 @@ def test_list_customers_sort_by_phone(client):
         )
         assert response.status_code == 200
 
-    response = client.get(
+    response = auth_client.get(
         "/customers/?sort_by=phone&sort_order=asc"
     )
 
@@ -624,26 +734,31 @@ def test_list_customers_sort_by_phone(client):
     ]
 
 
-def test_list_customers_invalid_page(client):
-    response = client.get("/customers/?page=0")
+# =========================
+# Validation
+# =========================
+
+
+def test_list_customers_invalid_page(auth_client):
+    response = auth_client.get("/customers/?page=0")
 
     assert response.status_code == 422
 
 
-def test_list_customers_invalid_limit_zero(client):
-    response = client.get("/customers/?limit=0")
+def test_list_customers_invalid_limit_zero(auth_client):
+    response = auth_client.get("/customers/?limit=0")
 
     assert response.status_code == 422
 
 
-def test_list_customers_invalid_limit_too_large(client):
-    response = client.get("/customers/?limit=101")
+def test_list_customers_invalid_limit_too_large(auth_client):
+    response = auth_client.get("/customers/?limit=101")
 
     assert response.status_code == 422
 
 
-def test_list_customers_invalid_sort_by(client):
-    response = client.get(
+def test_list_customers_invalid_sort_by(auth_client):
+    response = auth_client.get(
         "/customers/?sort_by=invalid"
     )
 
@@ -653,8 +768,8 @@ def test_list_customers_invalid_sort_by(client):
     )
 
 
-def test_list_customers_invalid_sort_order(client):
-    response = client.get(
+def test_list_customers_invalid_sort_order(auth_client):
+    response = auth_client.get(
         "/customers/?sort_order=invalid"
     )
 

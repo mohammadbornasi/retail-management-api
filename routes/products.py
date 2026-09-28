@@ -1,10 +1,12 @@
 from math import ceil
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Product
+from models import Product, User
 from schemas import ProductCreate, ProductResponse, ProductListResponse
+from security import get_current_user, require_admin
 
 
 router = APIRouter(
@@ -13,9 +15,12 @@ router = APIRouter(
 )
 
 
-
 @router.post("/", response_model=ProductResponse)
-def create_product(product: ProductCreate, db: Session = Depends(get_db)):
+def create_product(
+    product: ProductCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     new_product = Product(
         name=product.name,
         price=product.price,
@@ -27,7 +32,6 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     db.refresh(new_product)
 
     return new_product
-
 
 
 @router.get("/", response_model=ProductListResponse)
@@ -42,6 +46,7 @@ def get_products(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     query = db.query(Product)
 
@@ -126,6 +131,7 @@ def get_products(
 def get_low_stock_products(
     threshold: int = 5,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     return (
         db.query(Product)
@@ -134,9 +140,12 @@ def get_low_stock_products(
     )
 
 
-
 @router.get("/{product_id}", response_model=ProductResponse)
-def get_product(product_id: int, db: Session = Depends(get_db)):
+def get_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     product = db.query(Product).filter(Product.id == product_id).first()
 
     if not product:
@@ -148,12 +157,12 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     return product
 
 
-
 @router.put("/{product_id}", response_model=ProductResponse)
 def update_product(
     product_id: int,
     product: ProductCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     existing_product = (
         db.query(Product)
@@ -177,9 +186,12 @@ def update_product(
     return existing_product
 
 
-
 @router.delete("/{product_id}")
-def delete_product(product_id: int, db: Session = Depends(get_db)):
+def delete_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     product = db.query(Product).filter(Product.id == product_id).first()
 
     if not product:

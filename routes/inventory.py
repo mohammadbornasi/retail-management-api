@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Product, InventoryTransaction
+from models import Product, InventoryTransaction, User
 from schemas import (
     InventoryTransactionCreate,
     InventoryTransactionResponse,
 )
+from security import get_current_user
 
 router = APIRouter(
     prefix="/products",
@@ -22,6 +23,7 @@ def create_inventory_transaction(
     product_id: int,
     transaction: InventoryTransactionCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     product = db.get(Product, product_id)
 
@@ -77,6 +79,7 @@ def create_inventory_transaction(
 def get_inventory_transactions(
     product_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     product = db.get(Product, product_id)
 
