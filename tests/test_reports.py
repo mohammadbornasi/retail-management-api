@@ -745,14 +745,16 @@ def test_sales_report_single_confirmed_order(auth_client):
         "confirmed",
     )
 
+    today = datetime.now(UTC).date()
+    from_date = today - timedelta(days=29) 
+        
     response = auth_client.get(
         "/reports/sales",
         params={
-            "from_date": "2026-09-01",
-            "to_date": "2026-09-30",
+        "from_date": from_date.isoformat(),
+        "to_date": today.isoformat(),
         },
     )
-
     assert response.status_code == 200
 
     data = response.json()
@@ -817,11 +819,15 @@ def test_sales_report_multiple_orders_same_day(auth_client):
         "confirmed",
     )
 
+
+    today = datetime.now(UTC).date()
+    from_date = today - timedelta(days=29) 
+
     response = auth_client.get(
         "/reports/sales",
         params={
-            "from_date": "2026-09-01",
-            "to_date": "2026-09-30",
+        "from_date": from_date.isoformat(),
+        "to_date": today.isoformat(),
         },
     )
 
@@ -879,11 +885,14 @@ def test_sales_report_multiple_sales_days(auth_client):
         "confirmed",
     )
 
+    today = datetime.now(UTC).date()
+    from_date = today - timedelta(days=29) 
+    
     response = auth_client.get(
         "/reports/sales",
         params={
-            "from_date": "2026-09-01",
-            "to_date": "2026-09-30",
+        "from_date": from_date.isoformat(),
+        "to_date": today.isoformat(),
         },
     )
 
@@ -1025,11 +1034,14 @@ def test_sales_report_includes_processing_orders(auth_client):
         "processing",
     )
 
+    today = datetime.now(UTC).date()
+    from_date = today - timedelta(days=29) 
+        
     response = auth_client.get(
         "/reports/sales",
         params={
-            "from_date": "2026-09-01",
-            "to_date": "2026-09-30",
+        "from_date": from_date.isoformat(),
+        "to_date": today.isoformat(),
         },
     )
 
@@ -1068,11 +1080,14 @@ def test_sales_report_includes_shipped_orders(auth_client):
     update_order_status(auth_client, order_id, "processing")
     update_order_status(auth_client, order_id, "shipped")
 
+    today = datetime.now(UTC).date()
+    from_date = today - timedelta(days=29) 
+        
     response = auth_client.get(
         "/reports/sales",
         params={
-            "from_date": "2026-09-01",
-            "to_date": "2026-09-30",
+        "from_date": from_date.isoformat(),
+        "to_date": today.isoformat(),
         },
     )
 
@@ -1112,11 +1127,14 @@ def test_sales_report_includes_delivered_orders(auth_client):
     update_order_status(auth_client, order_id, "shipped")
     update_order_status(auth_client, order_id, "delivered")
 
+    today = datetime.now(UTC).date()
+    from_date = today - timedelta(days=29) 
+        
     response = auth_client.get(
         "/reports/sales",
         params={
-            "from_date": "2026-09-01",
-            "to_date": "2026-09-30",
+        "from_date": from_date.isoformat(),
+        "to_date": today.isoformat(),
         },
     )
 
@@ -1325,6 +1343,7 @@ def test_sales_report_to_date_filter(auth_client):
     )
 
     today = datetime.now(UTC).date()
+    from_date = today - timedelta(days=27)
 
     update_order_status(
         auth_client,
@@ -1335,9 +1354,9 @@ def test_sales_report_to_date_filter(auth_client):
     response = auth_client.get(
         "/reports/sales",
         params={
-            "from_date": "2026-09-01",
+            "from_date": from_date.isoformat(),
             "to_date": today.isoformat(),
-        },
+        }
     )
 
     assert response.status_code == 200

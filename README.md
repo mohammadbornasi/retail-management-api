@@ -1,186 +1,153 @@
 # Retail Management API
 
-A practical REST API for managing products, customers, orders, and inventory, built with Python and FastAPI.
+A RESTful backend API for managing retail operations, built with Python and FastAPI. The project demonstrates API design, database modeling, authentication, inventory management, order workflows, reporting, and automated testing.
 
-## About the Project
-
-Retail Management API is a backend application designed as a foundation for a retail management system.
-
-The project demonstrates how to build a RESTful API with:
-
-* Python
-* FastAPI
-* SQLAlchemy
-* SQLite
-* Pydantic
-* Alembic
-* Automated testing
-
-The application currently supports product and customer management, order creation and management, order status workflows, and inventory adjustments based on order status.
-
-The project is being developed incrementally with a focus on clean API design, database integration, business logic, testing, and maintainability.
-
-## Current Features
+## Features
 
 ### Product Management
-
-* Create products
-* List all products
-* Retrieve a product by ID
-* Update products
-* Delete products
-* Manage product prices and stock
+- Create, retrieve, update, and delete products.
+- List products with pagination and filtering.
+- Track product prices and stock levels.
+- Identify products with low stock.
 
 ### Customer Management
-
-* Create customers
-* List all customers
-* Retrieve a customer by ID
-* Update customers
-* Delete customers
-* Prevent duplicate customer emails
+- Create, retrieve, update, and delete customers.
+- List customers with pagination.
+- Prevent duplicate customer email addresses.
 
 ### Order Management
+- Create orders for existing customers.
+- Retrieve order details and list orders.
+- Add products to orders, update item quantities, and remove items.
+- Calculate order totals.
+- Preserve item prices when products are added to an order.
+- Validate order status transitions.
 
-* Create orders for customers
-* Add products to orders
-* Update order item quantities
-* Delete order items
-* Retrieve complete order details
-* Calculate order totals
-* Snapshot product prices when items are added to an order
+### Order Status and Inventory
+- Manage order status transitions, including confirmation, processing, shipping, delivery, and cancellation.
+- Deduct stock when an order is confirmed.
+- Restore stock when a confirmed order is cancelled.
+- Validate stock availability before confirming orders.
 
-### Order Status Workflow
+### Inventory Management
+- Record stock increases and decreases.
+- Store inventory transaction history.
+- Track transaction quantities, types, and reasons.
+- Prevent stock reductions that exceed available inventory.
 
-Orders support the following statuses:
+### Authentication and Security
+- Register and authenticate users.
+- Hash passwords before storing them.
+- Issue JWT access tokens.
+- Retrieve the authenticated user's profile.
+- Check account activation status.
+- Apply authentication and authorization to protected operations.
 
-```text
-pending
-   ├── confirmed
-   │      ├── processing
-   │      │      └── shipped
-   │      │             └── delivered
-   │      └── cancelled
-   │
-   └── cancelled
-```
+### Reporting
+- Sales summary and date-based sales reports.
+- Reporting endpoints for sales, customers, and inventory.
+- Support for analyzing retail operations through aggregated data.
 
-The API validates allowed status transitions.
+Explore `/docs` after starting the application for the complete, interactive API reference.
 
-When an order changes from `pending` to `confirmed`, the required product stock is deducted.
+## Technology Stack
 
-When a confirmed order is cancelled, the reserved stock is restored.
-
-### Database
-
-* SQLite database
-* SQLAlchemy ORM
-* Alembic database migrations
-* Product, customer, order, and order item models
-
-### Testing
-
-The project includes an automated test suite covering:
-
-* Product endpoints
-* Customer endpoints
-* Order creation and retrieval
-* Order item management
-* Order status transitions
-* Inventory changes
-* Validation and error handling
-* API health endpoints
-
-Current test status:
-
-```text
-61 tests passed
-98% overall code coverage
-```
-
-## Technologies
-
-* Python 3.14
-* FastAPI
-* SQLAlchemy
-* SQLite
-* Pydantic
-* Alembic
-* Uvicorn
-* Pytest
-* Coverage.py
-* Git & GitHub
+- **Language:** Python
+- **API Framework:** FastAPI
+- **ORM:** SQLAlchemy
+- **Database:** SQLite
+- **Data Validation:** Pydantic
+- **Database Migrations:** Alembic
+- **Authentication:** JWT
+- **Password Hashing:** pwdlib with Argon2
+- **Testing:** Pytest, FastAPI TestClient, HTTPX
+- **Version Control:** Git and GitHub
 
 ## Project Structure
 
 ```text
 retail-management-api/
-│
 ├── alembic/
-│   ├── versions/
-│   ├── env.py
-│   └── ...
-│
+│   └── versions/
 ├── routes/
+│   ├── auth.py
 │   ├── customers.py
+│   ├── inventory.py
 │   ├── orders.py
-│   └── products.py
-│
+│   ├── products.py
+│   └── reports.py
 ├── tests/
-│   ├── conftest.py
+│   ├── test_auth.py
 │   ├── test_customers.py
 │   ├── test_health.py
+│   ├── test_inventory.py
 │   ├── test_orders.py
-│   └── test_products.py
-│
+│   ├── test_products.py
+│   ├── test_reports.py
+│   └── test_security.py
 ├── database.py
 ├── main.py
 ├── models.py
 ├── schemas.py
+├── security.py
+├── alembic.ini
 ├── requirements.txt
 ├── .gitignore
 └── README.md
 ```
 
-The SQLite database, virtual environment, and test coverage artifacts are excluded from version control using `.gitignore`.
+- `main.py` — application entry point.
+- `routes/` — API endpoints grouped by feature.
+- `models.py` — SQLAlchemy database models.
+- `schemas.py` — Pydantic request and response schemas.
+- `database.py` — database configuration and session management.
+- `security.py` — authentication and security utilities.
+- `alembic/` — database migration configuration and revisions.
+- `tests/` — automated API and security tests.
 
-## Installation
+## Getting Started
+
+### Prerequisites
+
+- Python installed and available from the terminal.
+- Git.
 
 ### 1. Clone the repository
 
 ```bash
 git clone https://github.com/mohammadbornasi/retail-management-api.git
-```
-
-### 2. Navigate to the project
-
-```bash
 cd retail-management-api
 ```
 
-### 3. Create a virtual environment
+### 2. Create a virtual environment
 
 ```bash
 python -m venv .venv
 ```
 
-### 4. Activate the virtual environment
-
-#### Windows PowerShell
+Activate it in Windows PowerShell:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 ```
 
-### 5. Install dependencies
+### 3. Install dependencies
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-## Running the API
+### 4. Configure the environment
 
-Start the development server:
+Configure any environment variables required by the application before running it. Keep secrets and local configuration out of version control. Do not commit `.env`, database files, or other sensitive data.
+
+### 5. Apply database migrations
+
+```bash
+alembic upgrade head
+```
+
+### 6. Start the development server
 
 ```bash
 uvicorn main:app --reload
@@ -188,193 +155,169 @@ uvicorn main:app --reload
 
 The API will be available at:
 
-```text
-http://127.0.0.1:8000
+- API root: `http://127.0.0.1:8000`
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- ReDoc: `http://127.0.0.1:8000/redoc`
+
+## Authentication
+
+Register a user using `POST /auth/register`, then authenticate through `POST /auth/login`.
+
+Example login request:
+
+```http
+POST /auth/login
+Content-Type: application/json
 ```
 
-## API Documentation
-
-FastAPI automatically provides interactive API documentation.
-
-### Swagger UI
-
-```text
-http://127.0.0.1:8000/docs
+```json
+{
+  "username": "your_username",
+  "password": "your_password"
+}
 ```
 
-### ReDoc
+The response contains a bearer access token:
 
-```text
-http://127.0.0.1:8000/redoc
+```json
+{
+  "access_token": "<access_token>",
+  "token_type": "bearer"
+}
 ```
+
+For protected endpoints, include the token in the HTTP `Authorization` header:
+
+```http
+Authorization: Bearer <access_token>
+```
+
+Use `GET /auth/me` to retrieve the authenticated user's profile.
 
 ## API Endpoints
 
+The following table lists the main confirmed endpoints. Open Swagger UI at `/docs` for complete request schemas, query parameters, response models, and error details.
+
+### Authentication
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/auth/register` | Register a user |
+| POST | `/auth/login` | Authenticate and obtain a token |
+| GET | `/auth/me` | Get the current user's profile |
+
 ### Products
 
-| Method | Endpoint         | Description      |
-| ------ | ---------------- | ---------------- |
-| POST   | `/products/`     | Create a product |
-| GET    | `/products/`     | Get all products |
-| GET    | `/products/{id}` | Get a product    |
-| PUT    | `/products/{id}` | Update a product |
-| DELETE | `/products/{id}` | Delete a product |
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/products/` | Create a product |
+| GET | `/products/` | List products |
+| GET | `/products/low-stock` | List low-stock products |
+| GET | `/products/{product_id}` | Retrieve a product |
+| PUT | `/products/{product_id}` | Update a product |
+| DELETE | `/products/{product_id}` | Delete a product |
+
+### Inventory
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/products/{product_id}/inventory` | Record an inventory transaction |
+| GET | `/products/{product_id}/inventory` | Retrieve inventory transaction history |
 
 ### Customers
 
-| Method | Endpoint                   | Description       |
-| ------ | -------------------------- | ----------------- |
-| POST   | `/customers/`              | Create a customer |
-| GET    | `/customers/`              | Get all customers |
-| GET    | `/customers/{customer_id}` | Get a customer    |
-| PUT    | `/customers/{customer_id}` | Update a customer |
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/customers/` | Create a customer |
+| GET | `/customers/` | List customers |
+| GET | `/customers/{customer_id}` | Retrieve a customer |
+| PUT | `/customers/{customer_id}` | Update a customer |
 | DELETE | `/customers/{customer_id}` | Delete a customer |
 
 ### Orders
 
-| Method | Endpoint                                | Description             |
-| ------ | --------------------------------------- | ----------------------- |
-| POST   | `/orders/`                              | Create an order         |
-| GET    | `/orders/{order_id}`                    | Get an order            |
-| PATCH  | `/orders/{order_id}/status`             | Update order status     |
-| POST   | `/orders/{order_id}/items`              | Add an item to an order |
-| PATCH  | `/orders/{order_id}/items/{product_id}` | Update an order item    |
-| DELETE | `/orders/{order_id}/items/{product_id}` | Delete an order item    |
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/orders/` | Create an order |
+| GET | `/orders/` | List orders |
+| GET | `/orders/{order_id}` | Retrieve an order |
+| PATCH | `/orders/{order_id}/status` | Update order status |
+| POST | `/orders/{order_id}/items` | Add an item to an order |
+| PATCH | `/orders/{order_id}/items/{product_id}` | Update an order item |
+| DELETE | `/orders/{order_id}/items/{product_id}` | Remove an order item |
 
-## Example
+### Reports
 
-### Create a Product
-
-**Request**
-
-```http
-POST /products/
-```
-
-```json
-{
-  "name": "Wireless Mouse",
-  "price": 25.99,
-  "stock": 50
-}
-```
-
-**Response**
-
-```json
-{
-  "id": 1,
-  "name": "Wireless Mouse",
-  "price": 25.99,
-  "stock": 50
-}
-```
-
-### Create an Order
-
-**Request**
-
-```http
-POST /orders/
-```
-
-```json
-{
-  "customer_id": 1,
-  "items": [
-    {
-      "product_id": 1,
-      "quantity": 2
-    }
-  ]
-}
-```
-
-The product price is captured as the order item's `unit_price` when the order is created.
+The reporting module provides sales summaries and additional reporting endpoints. Consult `/docs` for the exact report paths, filters, pagination options, and response schemas.
 
 ## Database Migrations
 
-The project uses Alembic for database schema migrations.
+Alembic manages database schema changes.
 
-To check the current migration status:
+Check the current migration revision:
 
 ```bash
 alembic current
 ```
 
-To upgrade the database to the latest migration:
+Apply migrations:
 
 ```bash
 alembic upgrade head
 ```
 
-To check whether new migration operations are detected:
+Check whether model changes require a new migration:
 
 ```bash
 alembic check
 ```
 
-## Running Tests
+## Testing
 
 Run the complete test suite:
 
 ```bash
-pytest -q
+python -m pytest -q
 ```
 
-Run tests with coverage:
 
-```bash
-coverage run -m pytest
-coverage report -m
-```
+The test suite covers authentication, security, products, customers, orders, inventory, reporting, health endpoints, and validation.
 
-Current test result:
+**Latest recorded test result:** 260 passed.
 
-```text
-61 tests passed
-98% overall coverage
-```
 
 ## Roadmap
 
-Planned improvements include:
+Potential future improvements:
 
-* [ ] Product search
-* [ ] Low-stock alerts
-* [ ] Sales reporting
-* [ ] Authentication and authorization
-* [ ] PostgreSQL support
-* [ ] Docker support
-* [ ] Improved project architecture
-* [ ] CI/CD integration
-* [ ] AI-assisted retail features
+- PostgreSQL support and deployment configuration.
+- Docker-based development and deployment.
+- Continuous integration and automated quality checks.
+- More advanced reporting and analytics.
+- Additional API documentation and integration examples.
+- Production deployment and monitoring improvements.
 
 ## Project Goals
 
-This project is being developed as a practical backend portfolio project to demonstrate:
+This project serves as a practical backend development portfolio, demonstrating:
 
-* Python backend development
-* FastAPI development
-* REST API design
-* SQLAlchemy ORM
-* Database modeling
-* Business logic implementation
-* Inventory management
-* Order workflow design
-* Database migrations with Alembic
-* Automated testing
-* Code coverage
-* Git and GitHub workflow
+- RESTful API development with FastAPI.
+- Relational data modeling and SQLAlchemy ORM.
+- Request validation and structured API responses.
+- Authentication, password hashing, and access control.
+- Transactional business logic for orders and inventory.
+- Database migrations with Alembic.
+- Automated testing and code coverage.
+- Git and GitHub development workflows.
 
 ## Author
 
 **Mohammad Bornasi**
 
-Python Developer | AI & Automation | Backend Development
+Python Developer | Backend Development | AI & Automation
 
-* GitHub: [@mohammadbornasi](https://github.com/mohammadbornasi)
-* LinkedIn: [Mohammad Bornasi](https://www.linkedin.com/in/mohammadbornasi)
+- GitHub: [@mohammadbornasi](https://github.com/mohammadbornasi)
+- LinkedIn: [Mohammad Bornasi](https://www.linkedin.com/in/mohammadbornasi)
 
 ---
 
